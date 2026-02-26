@@ -12,7 +12,7 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://gitcode.com/*/pull/*"],
+    "matches": ["https://gitcode.com/*/pull/*", "https://gitcode.com/*/issues/*"],
       "js": ["content.js"],
       "css": ["styles.css"]
     }

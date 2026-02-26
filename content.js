@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 监听页面变化（SPA应用）
-const observer = new MutationObserver(function(mutations) {
+const observer = new MutationObserver(function() {
     // 延迟执行，确保DOM完全渲染
     setTimeout(addQuickCommentButtons, 500);
 });
@@ -74,18 +74,18 @@ function addQuickCommentButtons() {
         insertComment(lastCommentSection, '/lgtm');
     };
 
-    const approveBtn = document.createElement('button');
-    approveBtn.className = 'devui-button devui-button--outline devui-button--outline--secondary devui-button--md';
-    approveBtn.type = 'button';
-    approveBtn.innerHTML = '<span class="button-content">/approve</span>';
-    approveBtn.onclick = function() {
-        console.log('Approve button clicked');
-        insertComment(lastCommentSection, '/approve');
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'devui-button devui-button--outline devui-button--outline--secondary devui-button--md quick-comment-more-btn';
+    moreBtn.type = 'button';
+    moreBtn.innerHTML = '<span class="button-content">更多</span>';
+    moreBtn.onclick = function(e) {
+        e.stopPropagation();
+        toggleQuickCommentMenu(moreBtn, lastCommentSection);
     };
 
     quickCommentDiv.appendChild(compileBtn);
     quickCommentDiv.appendChild(lgtmBtn);
-    quickCommentDiv.appendChild(approveBtn);
+    quickCommentDiv.appendChild(moreBtn);
 
     // 插入到发送评论按钮的右侧
     const buttonContainer = sendButton.parentNode;
@@ -305,4 +305,68 @@ function insertIntoTextarea(textarea, comment) {
         const event = new Event(eventType, { bubbles: true });
         textarea.dispatchEvent(event);
     });
+}
+
+function toggleQuickCommentMenu(button, commentSection) {
+    const existingMenu = document.querySelector('.quick-comment-menu');
+    
+    if (existingMenu) {
+        existingMenu.remove();
+        return;
+    }
+    
+    const menu = createQuickCommentMenu(button, commentSection);
+    document.body.appendChild(menu);
+    
+    setTimeout(() => {
+        menu.classList.add('show');
+    }, 10);
+    
+    const closeMenu = (e) => {
+        if (!menu.contains(e.target) && !button.contains(e.target)) {
+            menu.classList.remove('show');
+            setTimeout(() => menu.remove(), 200);
+            document.removeEventListener('click', closeMenu);
+        }
+    };
+    
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+    }, 10);
+}
+
+function createQuickCommentMenu(button, commentSection) {
+    const menu = document.createElement('div');
+    menu.className = 'quick-comment-menu';
+    
+    const menuItems = [
+        { label: '/approve', value: '/approve' },
+        { label: '/label add triaged', value: '/label add triaged' },
+        { label: '/label add feature', value: '/label add feature' },
+        { label: '/check-pr', value: '/check-pr' },
+        { label: '收到反馈，感谢！', value: '收到反馈，感谢！我会尽快查看并回复进展。' }
+    ];
+    
+    menuItems.forEach(item => {
+        const menuItem = document.createElement('div');
+        menuItem.className = 'quick-comment-menu-item';
+        menuItem.textContent = item.label;
+        menuItem.onclick = function() {
+            console.log('Quick comment selected:', item.value);
+            insertComment(commentSection, item.value);
+            menu.classList.remove('show');
+            setTimeout(() => menu.remove(), 200);
+        };
+        menu.appendChild(menuItem);
+    });
+    
+    document.body.appendChild(menu);
+    const menuHeight = menu.offsetHeight;
+    document.body.removeChild(menu);
+    
+    const buttonRect = button.getBoundingClientRect();
+    menu.style.left = buttonRect.left + 'px';
+    menu.style.top = (buttonRect.top - menuHeight - 4) + 'px';
+    
+    return menu;
 }
