@@ -4,11 +4,16 @@
   "version": "1.0",
   "description": "Add quick comment buttons (/lgtm and /approve) to GitCode pull request pages",
   "permissions": [
-    "activeTab",
-    "scripting"
+    "activeTab"
   ],
   "host_permissions": [
     "https://gitcode.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://gitcode.com/*"]
+    }
   ],
   "content_scripts": [
     {

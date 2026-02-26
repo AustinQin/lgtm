@@ -1,7 +1,39 @@
-// 等待页面加载完成
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(addQuickCommentButtons, 1000);
-});
+// 初始化页面环境中的代码注入
+initPageEnvironment();
+
+// 初始化页面环境中的辅助函数
+function initPageEnvironment() {
+    // 避免重复注入
+    if (document.querySelector('#gitcode-quick-comment-inject')) {
+        return;
+    }
+    
+    const script = document.createElement('script');
+    script.id = 'gitcode-quick-comment-inject';
+    script.src = chrome.runtime.getURL('inject.js');
+    document.head.appendChild(script);
+}
+
+// 在页面环境中执行插入文本
+function insertTextInPageContext(comment, callback) {
+    // 发送消息到页面环境
+    window.dispatchEvent(new CustomEvent('gitCodeQuickCommentMessage', {
+        detail: {
+            action: 'insertText',
+            comment: comment
+        }
+    }));
+    
+    // 监听响应
+    const responseHandler = function(event) {
+        if (event.detail && event.detail.action === 'insertText') {
+            window.removeEventListener('gitCodeQuickCommentResponse', responseHandler);
+            callback(event.detail.success);
+        }
+    };
+    
+    window.addEventListener('gitCodeQuickCommentResponse', responseHandler);
+}
 
 // 监听页面变化（SPA应用）
 const observer = new MutationObserver(function() {
@@ -59,28 +91,35 @@ function addQuickCommentButtons() {
     const compileBtn = document.createElement('button');
     compileBtn.className = 'devui-button devui-button--outline devui-button--outline--secondary devui-button--md';
     compileBtn.type = 'button';
-    compileBtn.innerHTML = '<span class="button-content">compile</span>';
+    compileBtn.innerHTML = 'compile';
     compileBtn.onclick = function() {
-        console.log('COMPILE button clicked');
-        insertComment(lastCommentSection, 'compile');
+        const currentSection = getCurrentCommentSection();
+        if (currentSection) {
+            insertComment(currentSection, 'compile');
+        }
     };
 
     const lgtmBtn = document.createElement('button');
     lgtmBtn.className = 'devui-button devui-button--outline devui-button--outline--secondary devui-button--md';
     lgtmBtn.type = 'button';
-    lgtmBtn.innerHTML = '<span class="button-content">/lgtm</span>';
+    lgtmBtn.innerHTML = '/lgtm';
     lgtmBtn.onclick = function() {
-        console.log('LGTM button clicked');
-        insertComment(lastCommentSection, '/lgtm');
+        const currentSection = getCurrentCommentSection();
+        if (currentSection) {
+            insertComment(currentSection, '/lgtm');
+        }
     };
 
     const moreBtn = document.createElement('button');
     moreBtn.className = 'devui-button devui-button--outline devui-button--outline--secondary devui-button--md quick-comment-more-btn';
     moreBtn.type = 'button';
-    moreBtn.innerHTML = '<span class="button-content">更多</span>';
+    moreBtn.innerHTML = '更多';
     moreBtn.onclick = function(e) {
         e.stopPropagation();
-        toggleQuickCommentMenu(moreBtn, lastCommentSection);
+        const currentSection = getCurrentCommentSection();
+        if (currentSection) {
+            toggleQuickCommentMenu(moreBtn, currentSection);
+        }
     };
 
     quickCommentDiv.appendChild(compileBtn);
@@ -90,220 +129,22 @@ function addQuickCommentButtons() {
     // 插入到发送评论按钮的右侧
     const buttonContainer = sendButton.parentNode;
     buttonContainer.insertBefore(quickCommentDiv, sendButton.nextSibling);
-
-    console.log('Quick comment buttons added successfully');
 }
 
-function findCommentArea() {
-    // 这个函数现在主要用于兼容性，主要逻辑在addQuickCommentButtons中
-    // 尝试多种选择器来找到评论输入区域
-    const selectors = [
-        // GitCode特定的选择器
-        '.g-discussion-item .CodeMirror',
-        '.g-discussion-item .dp-md-editor',
-        '.g-discussion-item textarea',
-        '.CodeMirror textarea',
-        '.dp-md-editor textarea',
-        // 通用选择器作为备选
-        'textarea[name="comment"]',
-        '.comment-form textarea',
-        '.new-comment textarea',
-        'textarea[placeholder*="评论"]',
-        'textarea[placeholder*="comment"]',
-        '.comment-textarea',
-        'textarea.comment-input'
-    ];
-
-    for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-            // 如果找到的是CodeMirror容器，找到其父容器
-            if (element.classList.contains('CodeMirror')) {
-                return element.closest('.g-discussion-item') || element.closest('.dp-md-editor');
-            }
-            return element;
-        }
+function getCurrentCommentSection() {
+    const commentSections = document.querySelectorAll('.g-discussion-item');
+    if (commentSections.length === 0) {
+        return null;
     }
-
-    return null;
+    return commentSections[commentSections.length - 1];
 }
 
 function insertComment(commentSection, comment) {
-    // 在指定的评论区域内查找编辑器
-    const codeMirror = commentSection.querySelector('.CodeMirror');
-    const textarea = commentSection.querySelector('textarea');
+    // 在页面环境中通过CodeMirror API插入文本
+    insertTextInPageContext(comment, function(success) {
+        if (success) {
 
-    if (codeMirror) {
-        // 方法1: 尝试通过CodeMirror API
-        const success = tryCodeMirrorAPI(codeMirror, comment);
-        if (!success) {
-            // 方法2: 尝试模拟键盘事件
-            simulateKeyboardInput(codeMirror, comment);
         }
-    } else if (textarea) {
-        // 普通textarea处理
-        insertIntoTextarea(textarea, comment);
-    }
-}
-
-function tryCodeMirrorAPI(codeMirror, comment) {
-    // 尝试多种方式获取CodeMirror实例
-    let cm = null;
-
-    // 方法1: 直接访问
-    if (codeMirror.CodeMirror) {
-        cm = codeMirror.CodeMirror;
-    }
-
-    // 方法2: 通过属性访问
-    if (!cm && codeMirror.cm) {
-        cm = codeMirror.cm;
-    }
-
-    // 方法3: 通过数据属性访问
-    if (!cm) {
-        cm = codeMirror.__CodeMirror__;
-    }
-
-    if (cm && typeof cm.setValue === 'function') {
-        try {
-            const currentValue = cm.getValue() || '';
-            const newValue = currentValue.trim() ? currentValue + '\n' + comment : comment;
-
-            // 设置新值
-            cm.setValue(newValue);
-
-            // 移动光标到末尾
-            cm.setCursor(cm.lineCount(), 0);
-
-            // 聚焦到编辑器
-            cm.focus();
-
-            // 刷新显示
-            cm.refresh();
-
-            console.log('Text inserted via CodeMirror API:', newValue);
-            return true;
-        } catch (error) {
-            console.error('CodeMirror API error:', error);
-        }
-    }
-
-    return false;
-}
-
-function simulateKeyboardInput(codeMirror, comment) {
-    // 查找隐藏的textarea
-    const hiddenTextarea = codeMirror.querySelector('textarea');
-    if (!hiddenTextarea) {
-        console.error('Hidden textarea not found');
-        return;
-    }
-
-    // 聚焦到编辑器
-    hiddenTextarea.focus();
-
-    // 获取当前值
-    const currentValue = hiddenTextarea.value || '';
-
-    // 如果当前行不为空，先模拟按回车键
-    if (currentValue.trim()) {
-        // 模拟按下回车键
-        const enterEvent = new KeyboardEvent('keydown', {
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true
-        });
-        hiddenTextarea.dispatchEvent(enterEvent);
-
-        // 模拟释放回车键
-        const enterUpEvent = new KeyboardEvent('keyup', {
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true
-        });
-        hiddenTextarea.dispatchEvent(enterUpEvent);
-    }
-
-    // 逐个字符输入
-    setTimeout(() => {
-        for (let i = 0; i < comment.length; i++) {
-            setTimeout(() => {
-                const char = comment[i];
-
-                // 模拟按下字符键
-                const keyDownEvent = new KeyboardEvent('keydown', {
-                    key: char,
-                    code: `Key${char.toUpperCase()}`,
-                    keyCode: char.charCodeAt(0),
-                    which: char.charCodeAt(0),
-                    bubbles: true,
-                    cancelable: true
-                });
-                hiddenTextarea.dispatchEvent(keyDownEvent);
-
-                // 模拟按下字符键
-                const keyPressEvent = new KeyboardEvent('keypress', {
-                    key: char,
-                    code: `Key${char.toUpperCase()}`,
-                    keyCode: char.charCodeAt(0),
-                    which: char.charCodeAt(0),
-                    bubbles: true,
-                    cancelable: true
-                });
-                hiddenTextarea.dispatchEvent(keyPressEvent);
-
-                // 模拟输入事件
-                const inputEvent = new InputEvent('input', {
-                    data: char,
-                    bubbles: true,
-                    cancelable: true
-                });
-                hiddenTextarea.dispatchEvent(inputEvent);
-
-                // 模拟释放字符键
-                const keyUpEvent = new KeyboardEvent('keyup', {
-                    key: char,
-                    code: `Key${char.toUpperCase()}`,
-                    keyCode: char.charCodeAt(0),
-                    which: char.charCodeAt(0),
-                    bubbles: true,
-                    cancelable: true
-                });
-                hiddenTextarea.dispatchEvent(keyUpEvent);
-
-                // 更新textarea值
-                hiddenTextarea.value += char;
-
-            }, i * 50); // 每个字符间隔50ms
-        }
-
-        console.log('Text inserted via keyboard simulation:', comment);
-    }, 100);
-}
-
-function insertIntoTextarea(textarea, comment) {
-    // 如果已经有内容，添加换行
-    if (textarea.value.trim()) {
-        textarea.value += '\n' + comment;
-    } else {
-        textarea.value = comment;
-    }
-
-    // 聚焦到评论框
-    textarea.focus();
-
-    // 触发多个事件，确保页面检测到变化
-    const events = ['input', 'change', 'keyup'];
-    events.forEach(eventType => {
-        const event = new Event(eventType, { bubbles: true });
-        textarea.dispatchEvent(event);
     });
 }
 
@@ -335,7 +176,7 @@ function toggleQuickCommentMenu(button, commentSection) {
     }, 10);
 }
 
-function createQuickCommentMenu(button, commentSection) {
+function createQuickCommentMenu(button) {
     const menu = document.createElement('div');
     menu.className = 'quick-comment-menu';
     
@@ -352,8 +193,10 @@ function createQuickCommentMenu(button, commentSection) {
         menuItem.className = 'quick-comment-menu-item';
         menuItem.textContent = item.label;
         menuItem.onclick = function() {
-            console.log('Quick comment selected:', item.value);
-            insertComment(commentSection, item.value);
+            const currentSection = getCurrentCommentSection();
+            if (currentSection) {
+                insertComment(currentSection, item.value);
+            }
             menu.classList.remove('show');
             setTimeout(() => menu.remove(), 200);
         };
