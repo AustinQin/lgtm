@@ -182,9 +182,14 @@ function createQuickCommentMenu(button) {
     
     const menuItems = [
         { label: '/approve', value: '/approve' },
-        { label: '/label add triaged', value: '/label add triaged' },
-        { label: '/label add feature', value: '/label add feature' },
         { label: '/check-pr', value: '/check-pr' },
+        { label: '/label add triage-review', value: '/label add triage-review' },
+        { label: '/label add triaged', value: '/label add triaged' },
+        { label: '/label add pending', value: '/label add pending' },
+        { label: '/label add feature', value: '/label add feature' },
+        { label: '/label add resolved', value: '/label add resolved' },
+        { label: '/label add stale', value: '/label add stale' },
+        { label: '/label add duplicated', value: '/label add duplicated' },
         { label: '收到反馈，感谢！', value: '收到反馈，感谢！我会尽快查看并回复进展。' }
     ];
     
