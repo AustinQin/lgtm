@@ -1,11 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GitCode Quick Comment",
-  "version": "1.0",
-  "description": "Add quick comment buttons (/lgtm and /approve) to GitCode pull request pages",
-  "permissions": [
-    "activeTab"
-  ],
+  "version": "1.2",
+  "description": "Add quick review and issue management comments to GitCode pages",
   "host_permissions": [
     "https://gitcode.com/*"
   ],
@@ -17,7 +14,7 @@
   ],
   "content_scripts": [
     {
-    "matches": ["https://gitcode.com/*"],
+      "matches": ["https://gitcode.com/*"],
       "js": ["content.js"],
       "css": ["styles.css"]
     }

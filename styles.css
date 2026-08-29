@@ -5,29 +5,60 @@
   gap: 8px;
 }
 
-/* 按钮样式与GitCode原生按钮保持一致 */
-.quick-comment-buttons .devui-button {
-  padding: 6px 16px;
-  font-size: 14px;
-  border-radius: 4px;
-  border: 1px solid #d9d9d9;
-  background: #ffffff;
-  color: #595959;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.quick-comment-buttons .devui-button:hover {
-  border-color: #40a9ff;
-  color: #40a9ff;
-  background: #ffffff;
-}
-
-.quick-comment-buttons .devui-button .button-content {
-  display: flex;
+/* 使用独立样式，避免依赖 GitCode 内部组件类名。 */
+.quick-comment-button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 32px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--theme-border-base, #d9d9d9);
+  background: var(--theme-bg-base, #ffffff);
+  color: var(--theme-text-primary, #3b3e55);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+}
+
+.quick-comment-button:hover {
+  border-color: var(--theme-primary, #2468f2);
+  color: var(--theme-primary, #2468f2);
+  background: var(--theme-bg-base, #ffffff);
+}
+
+.quick-comment-button--lgtm,
+.quick-comment-button--lgtm:hover {
+  border-color: #16a34a;
+  background: var(--theme-bg-base, #ffffff);
+  color: #16a34a;
+}
+
+.quick-comment-button--lgtm:hover {
+  border-color: #15803d;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.quick-comment-button--warning,
+.quick-comment-button--warning:hover {
+  border-color: #d97706;
+  background: var(--theme-bg-base, #ffffff);
+  color: #d97706;
+}
+
+.quick-comment-button--warning:hover {
+  border-color: #b45309;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.quick-comment-button:focus-visible,
+.quick-comment-menu-item:focus-visible {
+  outline: 2px solid var(--theme-primary, #2468f2);
+  outline-offset: 2px;
 }
 
 /* 弹出菜单样式 */
@@ -53,6 +84,11 @@
 }
 
 .quick-comment-menu-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
   padding: 8px 16px;
   font-size: 14px;
   color: #262626;

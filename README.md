@@ -7,12 +7,11 @@
 ### Pull Request 页面功能
 
 **直接按钮：**
-- `compile` - 快速插入 "compile" 评论
-- `/lgtm` - 快速插入 "Looks Good To Me" 评论
-
-**更多菜单：**
-- `/approve` - 快速插入批准合入评论
 - `/check-pr` - 快速插入 PR 检查命令
+- `compile` - 快速插入 "compile" 评论
+- `retry` - 快速插入重试命令
+- `/approve` - 快速插入批准合入评论
+- `/lgtm` - 快速插入 "Looks Good To Me" 评论
 
 ### Issue 页面功能
 
@@ -77,11 +76,10 @@
    - 例如：`https://gitcode.com/Ascend/mstt/pull/5310`
 
 2. 在评论区域会看到快捷按钮
-   - `compile`、`/lgtm`、`更多` 按钮
+   - `/check-pr`、`compile`、`retry`、`/approve`、`/lgtm` 按钮
 
 3. 点击按钮快速插入对应评论
-   - 点击 `compile` 或 `/lgtm` 直接插入
-   - 点击 `更多` 查看额外选项（`/approve`、`/check-pr`、收到反馈）
+   - 点击对应按钮直接插入评论
 
 4. 点击提交按钮发送评论
 
@@ -91,7 +89,7 @@
    - 例如：`https://gitcode.com/Ascend/mstt/issues/1234`
 
 2. 在评论区域会看到快捷按钮
-   - `compile`、`/lgtm`、`更多` 按钮
+   - 仅显示 `更多` 按钮
 
 3. 点击 `更多` 查看标签相关命令
    - 选择对应的标签命令快速添加标签
@@ -116,9 +114,9 @@
 ## 技术实现
 
 - 使用 Chrome 扩展的 Content Script API
-- 通过外部 JS 文件注入绕过 CSP 限制
+- 通过外部 JS 文件进入页面上下文，访问编辑器实例
 - 使用 CustomEvent 在 content script 和页面环境间通信
-- 通过 CodeMirror API 直接操作编辑器
+- 同时兼容新版 PR 页面的 CodeMirror 6 和 Issue 页面的 CodeMirror 5
 - 支持 SPA 应用的路由变化监听
 
 ## 故障排除
@@ -135,6 +133,15 @@
    - 查看是否有错误信息
 
 ## 版本历史
+
+### v1.2
+- PR 页面仅展示 `/check-pr`、`compile`、`retry`、`/approve`、`/lgtm`
+- Issue 页面仅展示标签管理和感谢回复
+
+### v1.1
+- 适配新版 GitCode Pull Request 评论区
+- 同时兼容 CodeMirror 5 和 CodeMirror 6 编辑器
+- 减少重复 DOM 监听和对 GitCode 内部按钮样式的依赖
 
 ### v1.0
 - 初始版本
