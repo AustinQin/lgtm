@@ -1,0 +1,82 @@
+.qc-resolve-dialog {
+  --qc-ink: #263347;
+  --qc-muted: #697586;
+  --qc-line: #e3e8ef;
+  --qc-accent: #2468f2;
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(880px, calc(100dvh - 48px));
+  margin: auto;
+  padding: 0;
+  border: 1px solid #d8e0eb;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--qc-ink);
+  box-shadow: 0 24px 80px #172b4d33;
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.qc-resolve-dialog::backdrop { background: #14213866; backdrop-filter: blur(3px); }
+.qc-resolve-dialog * { box-sizing: border-box; }
+.qc-resolve-dialog [hidden] { display: none !important; }
+.qc-resolve-dialog p, .qc-resolve-dialog h2, .qc-resolve-dialog h3 { margin: 0; }
+.qc-resolve-dialog button, .qc-resolve-dialog input, .qc-resolve-dialog textarea { font: inherit; }
+.qc-resolve-form { display: flex; flex-direction: column; max-height: min(880px, calc(100dvh - 48px)); margin: 0; }
+.qc-resolve-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 32px; flex-shrink: 0; border-bottom: 1px solid var(--qc-line); background: #fff; }
+.qc-resolve-header h2 { font-size: 24px; font-weight: 650; letter-spacing: -0.5px; }
+.qc-resolve-dialog .qc-resolve-close { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--qc-muted); line-height: 1; cursor: pointer; }
+.qc-resolve-close-icon { position: relative; display: block; width: 16px; height: 16px; pointer-events: none; }
+.qc-resolve-close-icon::before, .qc-resolve-close-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: 16px; height: 2px; border-radius: 1px; background: currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+.qc-resolve-close-icon::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.qc-resolve-close:hover { background: #e9eff8; }
+.qc-resolve-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 0 32px 24px; }
+.qc-resolve-section { padding: 20px 0; border-top: 1px solid var(--qc-line); }
+.qc-resolve-section:first-child { border-top: 0; }
+.qc-resolve-section-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; list-style: none; }
+summary.qc-resolve-section-title { cursor: pointer; }
+summary.qc-resolve-section-title::-webkit-details-marker { display: none; }
+summary.qc-resolve-section-title::after { content: '+'; margin-left: auto; color: var(--qc-muted); font-size: 18px; }
+details[open] > summary.qc-resolve-section-title::after { content: '−'; }
+.qc-resolve-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; background: #edf3fd; color: #5278b5; font-size: 12px; font-weight: 500; }
+.qc-resolve-optional { color: var(--qc-muted); font-size: 11px; font-weight: 400; }
+.qc-resolve-fields { display: grid; gap: 18px; margin-top: 18px; }
+.qc-resolve-dialog .qc-resolve-description { margin-top: 12px; color: var(--qc-muted); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.qc-resolve-label { display: block; margin-bottom: 7px; color: var(--qc-ink); font-size: 13px; font-weight: 550; }
+.qc-resolve-required { color: #c0392b; }
+.qc-resolve-input { display: block; width: 100%; padding: 9px 12px; border: 1px solid #cfd8e3; border-radius: 7px; background: #fff; color: var(--qc-ink); outline: none; }
+textarea.qc-resolve-input { min-height: 78px; resize: vertical; }
+.qc-resolve-input::placeholder { color: #929eae; }
+.qc-resolve-input:focus { border-color: var(--qc-accent); box-shadow: 0 0 0 3px #2468f214; }
+.qc-resolve-input[aria-invalid='true'] { border-color: #d74b43; }
+.qc-resolve-dialog .qc-resolve-help { margin-top: 5px; color: var(--qc-muted); font-size: 12px; }
+.qc-resolve-dialog .qc-resolve-error { margin-top: 5px; color: #bd3028; font-size: 12px; }
+.qc-resolve-help:empty, .qc-resolve-error:empty { display: none; }
+.qc-resolve-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.qc-resolve-choice { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #d9e1eb; border-radius: 7px; cursor: pointer; background: #fff; font-size: 13px; }
+.qc-resolve-choice:has(input:checked) { background: #f0f5ff; border-color: #8fb1f6; color: #1b55c5; }
+.qc-resolve-choice:has(input[aria-invalid='true']) { border-color: #d74b43; }
+.qc-resolve-choice input { margin: 0; accent-color: var(--qc-accent); width: 14px; height: 14px; }
+.qc-resolve-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 32px; border-top: 1px solid var(--qc-line); background: #f8fafc; flex-shrink: 0; }
+.qc-resolve-footer-info { min-width: 0; }
+.qc-resolve-draft { display: block; color: #42669e; font-size: 12px; }
+.qc-resolve-footer small { display: block; margin-top: 2px; color: var(--qc-muted); font-size: 11px; }
+.qc-resolve-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.qc-resolve-primary, .qc-resolve-secondary { padding: 9px 16px; border: 1px solid #cfd8e3; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.qc-resolve-secondary { background: #fff; color: var(--qc-ink); }
+.qc-resolve-primary { background: var(--qc-accent); border-color: var(--qc-accent); color: #fff; font-weight: 550; }
+.qc-resolve-primary:hover { background: #1857d5; }
+.qc-resolve-secondary:hover { background: #edf2f8; }
+.qc-resolve-dialog button:disabled { opacity: 0.6; cursor: wait; }
+.qc-resolve-dialog button:focus-visible, .qc-resolve-dialog summary:focus-visible, .qc-resolve-choice:has(input:focus-visible) { outline: 2px solid var(--qc-accent); outline-offset: 3px; }
+
+@media (max-width: 600px) {
+  .qc-resolve-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+  .qc-resolve-form { max-height: calc(100dvh - 16px); }
+  .qc-resolve-header { padding: 18px 20px; }
+  .qc-resolve-header h2 { font-size: 21px; }
+  .qc-resolve-body { padding: 0 20px 16px; }
+  .qc-resolve-footer { padding: 12px 20px; flex-direction: column; align-items: stretch; gap: 10px; }
+  .qc-resolve-actions > button { flex: 1; }
+}

@@ -15,6 +15,22 @@
 
 ### Issue 页面功能
 
+**关单说明按钮：**
+- 根据当前 Issue 页面地址自动识别仓库
+- 点击后优先读取该仓库 `master` 分支、根目录下的 `.msbot/template/bug-close.yml`，动态生成填写弹窗
+- YAML 不存在、无法读取或格式不支持时，尝试默认分支的 `.msbot/template/issue_resolve_template.md`，将 Markdown 原文填入评论框
+- 两种仓库模板都不可用时打开内置表单；已有评论内容会保留，新内容追加到末尾
+- 仅填入内容，不会自动提交评论
+- 当前通过公开原文地址读取，无需配置 Token；私有仓库或无法公开访问的文件使用默认模板
+- 模板填入后在页面顶部显示轻提示，5 秒后自动消失，不打断评论填写
+- 默认表单依据 `bug-close.yml` 定义，包含七个分组；可选分组默认折叠，选择无用户感知变更时隐藏相关字段
+- 表单校验必填项、Commit/PR 编号、链接格式，以及回归版本/链接至少填写一项，填写后自动生成 Markdown
+- 生成内容采用“信息表格 + 分段正文”：PR、版本、关联组件等放入表格，原因分析、修复方案和自测验证保留正文；空的选填项省略，代码块及截图语法保持原样
+- 草稿按仓库和 Issue 保存在扩展的本地存储中，关闭、刷新后可恢复；填入后仍保留草稿便于再次修改
+- 仓库 YAML 和内置表单的草稿分开保存；YAML 字段定义变化后不复用旧模板草稿
+- 截图在填入后的 GitCode 评论框中添加；自定义仓库 Markdown 模板仍直接填入，不转换为表单
+- 编辑器不可用时显示错误提示，可重试
+
 **更多菜单（标签管理）：**
 - `/label add triage-review` - 添加 triage-review 标签
 - `/label add triaged` - 添加 triaged 标签
@@ -89,10 +105,14 @@
    - 例如：`https://gitcode.com/Ascend/mstt/issues/1234`
 
 2. 在评论区域会看到快捷按钮
-   - 仅显示 `更多` 按钮
+   - 显示 `关单说明` 和 `更多` 按钮
 
-3. 点击 `更多` 查看标签相关命令
-   - 选择对应的标签命令快速添加标签
+3. 点击 `关单说明`，按 YAML → Markdown → 内置表单的顺序读取模板
+   - `master` 分支的 `.msbot/template/bug-close.yml` 可用时，根据 YAML 字段打开表单
+   - YAML 不可用时尝试默认分支的 `.msbot/template/issue_resolve_template.md`，可用则直接填入原文
+   - 两者都不可用时打开内置表单；填写后点击「填入评论框」
+   - 点击「保存并关闭」或按 Esc 可关闭表单，下次打开继续填写；不同 Issue 的草稿互不影响
+   - 或点击 `更多`，选择标签命令
 
 4. 点击提交按钮发送评论
 
@@ -102,10 +122,45 @@
 - 从首页切换到 PR/issue 页面会自动加载按钮
 - 在不同 PR/issue 之间切换会自动更新
 
+### 仓库 YAML 模板格式
+
+沿用 GitHub Issue Forms 的 `body` 结构：
+
+```yaml
+name: 关单说明
+body:
+  - type: input
+    id: fixed_version
+    attributes:
+      label: 修复版本
+      placeholder: 例如 v1.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: 自测验证
+      description: 填写自测步骤与结果
+    validations:
+      required: true
+```
+
+- 支持 `input`、`textarea`、`dropdown`、`checkboxes`、`markdown`；字段必须有唯一 `id` 和 `attributes.label`。
+- `dropdown` 显示为单选按钮，`multiple: true` 显示为复选框；支持零起始的 `attributes.default` 选项下标。
+- 支持 `validations.required` 和复选框选项的 `required`；支持说明、占位提示和文本字段的 `attributes.value` 初始值。
+- `markdown` 中的标题用于分组，说明文字按纯文本展示，不执行 HTML；选填分组默认折叠。
+- 单行和选择项生成信息表格，多行字段生成正文段落；输出标题为「关单说明」，空项省略。
+- 仓库 YAML 以自身的必填规则为准，不推断描述文字中的条件或格式校验；例如填写“否”后要填“无”，由用户按说明填写。内置表单的条件显示与格式校验保持原样。
+- YAML 上限为 128 KiB 字符、80 个 body 项，每个选择字段最多 50 个选项；不支持自定义 YAML 标签或脚本。
+
 ## 文件结构
 
 - `manifest.json` - 插件配置文件
 - `content.js` - 主要功能脚本（content script）
+- `issue-form.js` - 默认关单说明表单、校验、草稿保存与 Markdown 生成
+- `issue-template.js` - 仓库 YAML 的解析、字段校验与动态表单模型
+- `vendor/` - 随插件打包的 YAML 解析器及许可证，不依赖运行时 CDN
+- `issue-form.css` - 表单弹窗及移动端样式
 - `inject.js` - 页面环境注入脚本
 - `styles.css` - 按钮和菜单样式
 - `popup.html` - 插件弹出页面
@@ -133,6 +188,20 @@
    - 查看是否有错误信息
 
 ## 版本历史
+
+### v1.5
+- 优先读取仓库 YAML 动态生成关单表单，兼容 Markdown 和内置表单回退
+- 支持仓库定义的字段、选项、默认值和必填规则，草稿按模板隔离
+
+### v1.4
+- 默认关单说明改为分组表单，支持条件显示和字段校验
+- 新增本地草稿保存与恢复，需要扩展的 `storage` 权限
+- 一键生成 Markdown 填入原评论框，保留已有文字，由用户手动提交
+
+### v1.3
+- Issue 评论区新增「关单说明」按钮，读取当前仓库默认分支中的模板
+- 增加加载、成功及失败提示，保留已有评论内容
+- 加载期间切换到其他 Issue 时，不向新的评论区插入旧模板
 
 ### v1.2
 - PR 页面仅展示 `/check-pr`、`compile`、`retry`、`/approve`、`/lgtm`

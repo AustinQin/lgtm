@@ -61,6 +61,48 @@
   outline-offset: 2px;
 }
 
+.quick-comment-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.quick-comment-template-status {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--theme-text-primary, #3b3e55);
+  overflow-wrap: anywhere;
+}
+
+.quick-comment-template-status:empty {
+  display: none;
+}
+
+.quick-comment-template-status[data-error="true"] {
+  color: #c53030;
+}
+
+.quick-comment-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 20px;
+  border: 1px solid var(--theme-border-base, #d9d9d9);
+  border-radius: 8px;
+  background: var(--theme-bg-base, #ffffff);
+  color: var(--theme-text-primary, #3b3e55);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
 /* 弹出菜单样式 */
 .quick-comment-menu {
   position: fixed;

@@ -89,7 +89,7 @@
         const success = Boolean(editor && appendComment(editor, request.comment));
 
         window.dispatchEvent(new CustomEvent(INSERT_RESPONSE_EVENT, {
-            detail: JSON.stringify({ success })
+            detail: JSON.stringify({ success, requestId: request.requestId })
         }));
     });
 })();
