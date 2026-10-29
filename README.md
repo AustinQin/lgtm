@@ -29,7 +29,8 @@
 - 生成内容采用“信息表格 + 分段正文”：PR、版本、关联组件等放入表格，原因分析、修复方案和自测验证保留正文；空的选填项省略，代码块及截图语法保持原样
 - 草稿按仓库和 Issue 保存在扩展的本地存储中，关闭、刷新后可恢复；填入后仍保留草稿便于再次修改
 - 仓库 YAML 和内置表单的草稿分开保存；YAML 字段定义变化后不复用旧模板草稿
-- 截图在填入后的 GitCode 评论框中添加；自定义仓库 Markdown 模板仍直接填入，不转换为表单
+- 表单文本框支持直接粘贴或拖入图片，自动上传到当前仓库并插入 Markdown；也可在填入后的 GitCode 评论框中添加
+- 图片上传使用当前仓库的 `uploads/image_file` 接口，需要登录 GitCode；自定义仓库 Markdown 模板仍直接填入，不转换为表单
 - 编辑器不可用时显示错误提示，可重试
 
 **更多菜单（标签管理）：**
@@ -113,6 +114,7 @@
    - 配置不可用时读取默认分支的 `.msbot/template/bug-close.yml`，根据 YAML 字段打开表单
    - YAML 都不可用时尝试默认分支的 `.msbot/template/issue_resolve_template.md`，可用则直接填入原文
    - 都不可用时打开内置表单；填写后点击「填入评论框」
+   - 表单文本框支持直接粘贴或拖入截图，上传成功后自动插入图片 Markdown
    - 点击「保存并关闭」或按 Esc 可关闭表单，下次打开继续填写；不同 Issue 的草稿互不影响
    - 或点击 `更多`，选择标签命令
 
@@ -178,6 +180,7 @@ body:
 - `content.js` - 主要功能脚本（content script）
 - `issue-form.js` - 默认关单说明表单、校验、草稿保存与 Markdown 生成
 - `issue-template.js` - `.msbot/config.yaml` 与仓库模板 YAML 的解析、字段校验与动态表单模型
+- `image-upload.js` - 表单图片上传：解析仓库 ID 并调用 GitCode 上传接口生成 Markdown
 - `vendor/` - 随插件打包的 YAML 解析器及许可证，不依赖运行时 CDN
 - `issue-form.css` - 表单弹窗及移动端样式
 - `inject.js` - 页面环境注入脚本
@@ -207,6 +210,11 @@ body:
    - 查看是否有错误信息
 
 ## 版本历史
+
+### v1.7
+- 关单表单文本/多行文本框支持粘贴或拖拽图片，自动上传并插入 Markdown
+- 图片上传使用当前仓库 `uploads/image_file` 接口，需要登录 GitCode
+- 新增图片上传状态与拖拽高亮提示
 
 ### v1.6
 - 关单说明优先读取默认分支 `.msbot/config.yaml` 中 `audits.bug_issue_close.template` 指定的模板

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitCode Quick Comment",
-  "version": "1.6",
+  "version": "1.7",
   "permissions": ["storage"],
   "description": "Add quick review and issue management comments to GitCode pages",
   "host_permissions": [
@@ -16,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["https://gitcode.com/*"],
-      "js": ["vendor/js-yaml.min.js", "issue-template.js", "issue-form.js", "content.js"],
+      "js": ["vendor/js-yaml.min.js", "issue-template.js", "image-upload.js", "issue-form.js", "content.js"],
       "css": ["styles.css", "issue-form.css"]
     }
   ],
