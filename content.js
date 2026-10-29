@@ -1,8 +1,9 @@
 const EDITOR_ID_ATTRIBUTE = 'data-gitcode-quick-comment-editor-id';
 const INSERT_REQUEST_EVENT = 'gitCodeQuickCommentMessage';
 const INSERT_RESPONSE_EVENT = 'gitCodeQuickCommentResponse';
+const ISSUE_CONFIG_PATH = '.msbot/config.yaml';
 const ISSUE_TEMPLATE_PATH = '.msbot/template/bug-close.yml';
-const ISSUE_TEMPLATE_REF = 'master';
+const ISSUE_TEMPLATE_REF = 'HEAD';
 const ISSUE_MARKDOWN_TEMPLATE_PATH = '.msbot/template/issue_resolve_template.md';
 const PAGE_COMMENTS = {
     pull: {
@@ -111,7 +112,7 @@ function addQuickCommentButtons() {
             const templateButton = createQuickCommentButton('关单说明', () => {
                 insertIssueTemplate(editor, editorId, templateButton);
             });
-            templateButton.title = `从当前仓库 ${ISSUE_TEMPLATE_REF} 分支读取 ${ISSUE_TEMPLATE_PATH}`;
+            templateButton.title = `读取当前仓库默认分支的 ${ISSUE_CONFIG_PATH} 或 ${ISSUE_TEMPLATE_PATH}`;
             buttons.appendChild(templateButton);
         }
 
@@ -163,7 +164,7 @@ function getIssueContext() {
     return { repository: `${match[1]}/${match[2]}`, issue: match[3] };
 }
 
-async function readIssueTemplate(repository, signal, path = ISSUE_TEMPLATE_PATH, ref = ISSUE_TEMPLATE_REF) {
+async function readRepositoryFile(repository, signal, path = ISSUE_TEMPLATE_PATH, ref = ISSUE_TEMPLATE_REF) {
     const url = `https://raw.gitcode.com/${repository}/raw/${ref}/${path}`;
     const response = await fetch(url, { signal, credentials: 'omit', cache: 'no-store' });
     if (!response.ok) {
@@ -182,14 +183,26 @@ async function readIssueTemplate(repository, signal, path = ISSUE_TEMPLATE_PATH,
 
 async function loadIssueTemplate(repository, signal, isCurrent) {
     try {
-        const yaml = await readIssueTemplate(repository, signal);
+        const config = await readRepositoryFile(repository, signal, ISSUE_CONFIG_PATH);
+        const templatePath = IssueTemplate.resolveTemplatePath(config);
+        if (templatePath) {
+            const yaml = await readRepositoryFile(repository, signal, templatePath);
+            if (!isCurrent()) return { kind: 'default' };
+            return { kind: 'yaml', schema: await IssueTemplate.parseYaml(yaml) };
+        }
+    } catch {
+        if (signal.aborted || !isCurrent()) return { kind: 'default' };
+    }
+    if (!isCurrent()) return { kind: 'default' };
+    try {
+        const yaml = await readRepositoryFile(repository, signal);
         if (!isCurrent()) return { kind: 'default' };
         return { kind: 'yaml', schema: await IssueTemplate.parseYaml(yaml) };
     } catch {
         if (signal.aborted || !isCurrent()) return { kind: 'default' };
     }
     try {
-        return { kind: 'markdown', content: await readIssueTemplate(repository, signal, ISSUE_MARKDOWN_TEMPLATE_PATH, 'HEAD') };
+        return { kind: 'markdown', content: await readRepositoryFile(repository, signal, ISSUE_MARKDOWN_TEMPLATE_PATH) };
     } catch {
         return { kind: 'default' };
     }
