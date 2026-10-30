@@ -193,6 +193,15 @@ test('the existing insertion action still preserves drafts without submitting', 
     assert.equal(fixture.state.clicks, 0);
 });
 
+test('the page bridge accepts the confirmed approve command', async () => {
+    const fixture = setup({ onClick(state) {
+        assert.equal(state.value, '/approve');
+        state.value = '';
+    } });
+    assert.equal((await fixture.request({ comment: '/approve' })).success, true);
+    assert.equal(fixture.state.clicks, 1);
+});
+
 function setupContent() {
     const listeners = new Map();
     const buttons = [{ disabled: false }, { disabled: false }];
@@ -224,6 +233,27 @@ function setupContent() {
     };
 }
 
+test('the approve button uses the submission flow with its confirmation anchor', () => {
+    const fixture = setupContent();
+    const buttons = [];
+    fixture.context.IssueResolveForm = { checkContext() {} };
+    fixture.context.findEditorTarget = () => ({ actions: { querySelector() {}, insertBefore() {} } });
+    fixture.context.getEditorId = () => 'editor-1';
+    fixture.context.document.querySelectorAll = () => [{ isConnected: true }];
+    fixture.context.document.createElement = () => ({ dataset: {}, appendChild(button) { buttons.push(button); } });
+    fixture.context.createQuickCommentButton = (label, onClick) => ({ label, onClick, setAttribute() {}, classList: { add() {} } });
+    const submissions = [];
+    fixture.context.submitPullComment = (...args) => submissions.push(args);
+    fixture.context.addQuickCommentButtons();
+    const approve = buttons.find(button => button.label === '/approve');
+    assert.match(approve.title, /确认后提交/);
+    approve.onClick();
+    assert.equal(fixture.requests.length, 0);
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0][2], '/approve');
+    assert.equal(submissions[0][3], approve);
+});
+
 test('content bridge locks every PR button and correlates the response before unlocking', async () => {
     const fixture = setupContent();
     const editor = { isConnected: true };
@@ -250,3 +280,50 @@ test('content bridge shows submission errors and restores the buttons', async ()
     assert.ok(fixture.buttons.every(button => !button.disabled));
     assert.equal(fixture.requests.length, 1);
 });
+
+for (const command of ['compile', '/approve']) {
+    test(`canceling ${command} confirmation does not insert or submit a comment`, async () => {
+        const fixture = setupContent();
+        const trigger = { isConnected: true };
+        fixture.context.confirmPullComment = async (button, editor, comment) => {
+            assert.equal(button, trigger);
+            assert.equal(comment, command);
+            return false;
+        };
+        await fixture.context.submitPullComment({ isConnected: true }, 'editor-1', command, trigger);
+        assert.equal(fixture.requests.length, 0);
+        assert.ok(fixture.buttons.every(button => !button.disabled));
+        assert.deepEqual(fixture.toasts, []);
+    });
+
+    test(`accepting ${command} confirmation submits the command once`, async () => {
+        const fixture = setupContent();
+        let confirmations = 0;
+        fixture.context.confirmPullComment = async (button, editor, comment) => {
+            assert.equal(comment, command);
+            confirmations++;
+            return true;
+        };
+        const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', command, { isConnected: true });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(confirmations, 1);
+        assert.equal(fixture.requests.length, 1);
+        assert.equal(fixture.requests[0].comment, command);
+        assert.equal(fixture.requests[0].action, 'submit');
+        fixture.respond({ requestId: 'content-request', success: true });
+        await pending;
+        assert.deepEqual(fixture.toasts, [`已提交 ${command}`]);
+    });
+
+    test(`does not submit ${command} if the PR changes while confirmation is open`, async () => {
+        const fixture = setupContent();
+        let accept;
+        fixture.context.confirmPullComment = () => new Promise(resolve => { accept = resolve; });
+        const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', command, { isConnected: true });
+        fixture.context.location.pathname = '/team/project/pull/43';
+        accept(true);
+        await pending;
+        assert.equal(fixture.requests.length, 0);
+        assert.ok(fixture.buttons.every(button => !button.disabled));
+    });
+}

@@ -35,6 +35,7 @@ let editorSequence = 0;
 let updateScheduled = false;
 let toastDismissTimer;
 let pullSubmissionPending = false;
+let activePullConfirm = null;
 
 initPageEnvironment();
 initQuickComments();
@@ -79,6 +80,7 @@ function scheduleButtonUpdate() {
 
 function addQuickCommentButtons() {
     IssueResolveForm.checkContext();
+    activePullConfirm?.checkContext();
     const pageType = getPageType();
     const comments = PAGE_COMMENTS[pageType];
     if (!comments) return;
@@ -98,12 +100,17 @@ function addQuickCommentButtons() {
 
         comments.direct.forEach(item => {
             const button = createQuickCommentButton(item.label, () => {
-                submitPullComment(editor, editorId, item.value);
+                submitPullComment(editor, editorId, item.value, button);
             });
             button.title = `直接提交 ${item.value} 评论`;
             button.disabled = pullSubmissionPending;
             if (item.value === '/lgtm') {
                 button.classList.add('quick-comment-button--lgtm');
+            }
+            if (item.value === 'compile' || item.value === '/approve') {
+                button.title = `确认后提交 ${item.value} 评论`;
+                button.setAttribute('aria-haspopup', 'dialog');
+                button.setAttribute('aria-expanded', 'false');
             }
             if (item.value === 'compile') {
                 button.classList.add('quick-comment-button--warning');
@@ -290,9 +297,112 @@ function showQuickCommentToast(message) {
     toastDismissTimer = setTimeout(() => toast.remove(), 5000);
 }
 
-async function submitPullComment(editor, editorId, comment) {
+function confirmPullComment(trigger, editor, comment) {
+    const previous = activePullConfirm;
+    previous?.close(false);
+    if (previous?.trigger === trigger) return Promise.resolve(false);
+
+    return new Promise(resolve => {
+        const pathname = location.pathname;
+        const popup = document.createElement('div');
+        popup.className = 'quick-comment-popconfirm';
+        popup.id = `qc-comment-confirm-${crypto.randomUUID()}`;
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-labelledby', `${popup.id}-message`);
+        const message = document.createElement('div');
+        message.className = 'quick-comment-popconfirm-message';
+        message.id = `${popup.id}-message`;
+        const icon = document.createElement('span');
+        icon.className = 'quick-comment-popconfirm-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '!';
+        const text = document.createElement('span');
+        text.textContent = `您确认要${comment.replace(/^\//, '')}吗？`;
+        message.append(icon, text);
+        const actions = document.createElement('div');
+        actions.className = 'quick-comment-popconfirm-actions';
+        const cancel = createQuickCommentButton('取消', () => close(false, true));
+        const confirm = createQuickCommentButton('确认', () => close(true, true));
+        confirm.classList.add('quick-comment-popconfirm-confirm');
+        actions.append(cancel, confirm);
+        popup.append(message, actions);
+        let closed = false;
+        const isCurrent = () => trigger.isConnected && editor.isConnected &&
+            !trigger.disabled && !pullSubmissionPending && location.pathname === pathname;
+
+        function close(accepted, restoreFocus = false) {
+            if (closed) return;
+            const valid = accepted && isCurrent();
+            closed = true;
+            popup.remove();
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.removeAttribute('aria-controls');
+            document.removeEventListener('pointerdown', onOutside, true);
+            document.removeEventListener('keydown', onKeydown, true);
+            window.removeEventListener('resize', position);
+            window.removeEventListener('scroll', position, true);
+            if (activePullConfirm?.trigger === trigger) activePullConfirm = null;
+            if (restoreFocus && trigger.isConnected) trigger.focus();
+            resolve(valid);
+        }
+
+        function position() {
+            if (!isCurrent()) { close(false); return; }
+            const anchor = trigger.getBoundingClientRect();
+            if (anchor.bottom <= 0 || anchor.top >= window.innerHeight ||
+                anchor.right <= 0 || anchor.left >= window.innerWidth) { close(false); return; }
+            const rect = popup.getBoundingClientRect();
+            const edge = 8;
+            const gap = 10;
+            const above = anchor.top >= rect.height + gap + edge;
+            const left = Math.max(edge, Math.min(anchor.left + anchor.width / 2 - rect.width / 2,
+                window.innerWidth - rect.width - edge));
+            const top = above ? anchor.top - rect.height - gap : anchor.bottom + gap;
+            popup.dataset.placement = above ? 'top' : 'bottom';
+            popup.style.left = `${left}px`;
+            popup.style.top = `${Math.max(edge, Math.min(top, window.innerHeight - rect.height - edge))}px`;
+            popup.style.setProperty('--qc-arrow-left', `${Math.max(16,
+                Math.min(anchor.left + anchor.width / 2 - left, rect.width - 16))}px`);
+        }
+
+        function onOutside(event) {
+            if (!popup.contains(event.target) && !trigger.contains(event.target)) close(false);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                close(false, true);
+            } else if (event.key === 'Tab' && popup.contains(document.activeElement)) {
+                if (event.shiftKey && document.activeElement === cancel) {
+                    event.preventDefault(); confirm.focus();
+                } else if (!event.shiftKey && document.activeElement === confirm) {
+                    event.preventDefault(); cancel.focus();
+                }
+            }
+        }
+
+        document.body.appendChild(popup);
+        trigger.setAttribute('aria-expanded', 'true');
+        trigger.setAttribute('aria-controls', popup.id);
+        activePullConfirm = { trigger, close, checkContext: () => { if (!isCurrent()) close(false); } };
+        document.addEventListener('pointerdown', onOutside, true);
+        document.addEventListener('keydown', onKeydown, true);
+        window.addEventListener('resize', position);
+        window.addEventListener('scroll', position, true);
+        position();
+        if (!closed) cancel.focus({ preventScroll: true });
+    });
+}
+
+async function submitPullComment(editor, editorId, comment, trigger) {
     if (pullSubmissionPending || !editor.isConnected || getPageType() !== 'pull') return;
     const pathname = location.pathname;
+    if (comment === 'compile' || comment === '/approve') {
+        if (!trigger?.isConnected || !await confirmPullComment(trigger, editor, comment)) return;
+        if (pullSubmissionPending || !editor.isConnected || location.pathname !== pathname) return;
+    } else activePullConfirm?.close(false);
     pullSubmissionPending = true;
     const setPending = pending => document.querySelectorAll(
         '.quick-comment-buttons[data-page-type="pull"] button'
