@@ -37,7 +37,7 @@ const IssueResolveForm = (() => {
         ] },
         { title: '自测验证', fields: [
             { id: 'evidence', label: '自测截图与结论', required: true, type: 'textarea',
-                help: '填写环境、步骤和结果。截图可在生成后的评论框中添加；无截图时提供自测命令、用例与结论。',
+                help: '填写环境、步骤和结果。可直接粘贴或拖入截图，自动上传并插入 Markdown；无截图时提供自测命令、用例与结论。',
                 placeholder: '自测环境：\n自测步骤 / 命令：\n自测结果：' }
         ] }
     ];
@@ -182,6 +182,7 @@ const IssueResolveForm = (() => {
                 if (field.required) label.append(element('span', 'qc-resolve-required', ' *'));
                 wrapper.append(label);
                 const inputs = [];
+                let imageStatus = null;
                 if (field.options) {
                     const choices = element('div', 'qc-resolve-choices');
                     choices.setAttribute('role', field.type === 'radio' ? 'radiogroup' : 'group');
@@ -206,6 +207,11 @@ const IssueResolveForm = (() => {
                     else input.rows = schema || ['rootCause', 'evidence'].includes(field.id) ? 4 : 2;
                     input.value = data[field.id];
                     input.placeholder = field.placeholder || '';
+                    imageStatus = element('p', 'qc-resolve-image-status');
+                    imageStatus.id = `${id}-image-status`;
+                    imageStatus.setAttribute('role', 'status');
+                    imageStatus.setAttribute('aria-live', 'polite');
+                    attachImageUpload(input, wrapper, imageStatus, context);
                     wrapper.append(input);
                     inputs.push(input);
                 }
@@ -214,8 +220,9 @@ const IssueResolveForm = (() => {
                 const error = element('p', 'qc-resolve-error');
                 error.id = `${id}-error`;
                 error.setAttribute('aria-live', 'polite');
-                inputs.forEach(input => input.setAttribute('aria-describedby', `${help.id} ${error.id}`));
-                wrapper.append(help, error);
+                const describedBy = [help.id, imageStatus?.id, error.id].filter(Boolean).join(' ');
+                inputs.forEach(input => input.setAttribute('aria-describedby', describedBy));
+                wrapper.append(help, ...(imageStatus ? [imageStatus] : []), error);
                 controls.set(field.id, { field, wrapper, inputs, error });
                 groups.set(field.id, group);
                 grid.append(wrapper);
@@ -230,7 +237,7 @@ const IssueResolveForm = (() => {
             ? draft ? '已恢复此 Issue 的本地草稿' : '草稿自动保存在本机' : '无法读取本地草稿，请勿关闭页面');
         const formError = element('p', 'qc-resolve-error');
         formError.setAttribute('role', 'alert');
-        footerInfo.append(draftStatus, element('small', '', '填入后可补充截图，检查后手动提交'), formError);
+        footerInfo.append(draftStatus, element('small', '', '可直接粘贴或拖入图片，检查后手动提交'), formError);
         const actions = element('div', 'qc-resolve-actions');
         const cancelButton = element('button', 'qc-resolve-secondary', '保存并关闭');
         cancelButton.type = 'button';
@@ -343,6 +350,91 @@ const IssueResolveForm = (() => {
         document.body.appendChild(dialog);
         dialog.showModal();
         focusFirstField();
+    }
+
+    function insertImageMarkdown(input, markdown) {
+        const multiline = input.tagName === 'TEXTAREA';
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        const before = input.value.slice(0, start);
+        const after = input.value.slice(end);
+        const separator = multiline ? '\n' : ' ';
+        const insertion = (before && !before.endsWith('\n') ? separator : '') + markdown +
+            (after && !after.startsWith('\n') ? separator : '');
+        input.value = before + insertion + after;
+        const cursor = before.length + insertion.length;
+        input.setSelectionRange(cursor, cursor);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+    }
+
+    function attachImageUpload(input, wrapper, status, context) {
+        let queue = Promise.resolve();
+        const setStatus = (message, isError = false) => {
+            if (!status.isConnected) return;
+            status.textContent = message;
+            if (isError) status.dataset.error = 'true';
+            else delete status.dataset.error;
+        };
+        const handleFiles = files => {
+            const images = [...files].filter(file => String(file?.type || '').startsWith('image/'));
+            if (!images.length) {
+                setStatus('仅支持图片文件。', true);
+                return;
+            }
+            queue = queue.then(async () => {
+                for (let index = 0; index < images.length; index++) {
+                    if (!input.isConnected) return;
+                    setStatus(images.length > 1 ? `图片上传中… (${index + 1}/${images.length})` : '图片上传中…');
+                    try {
+                        const markdown = await IssueImageUpload.upload(images[index], context.repository);
+                        if (!input.isConnected) return;
+                        insertImageMarkdown(input, markdown);
+                        setStatus('图片已插入');
+                    } catch (error) {
+                        setStatus(error?.message || '图片上传失败，请重试。', true);
+                        return;
+                    }
+                }
+                setTimeout(() => {
+                    if (status.isConnected && status.textContent === '图片已插入') setStatus('');
+                }, 2500);
+            });
+        };
+        const clipboardImages = event => {
+            const data = event.clipboardData;
+            if (!data) return [];
+            const files = [...(data.files || [])];
+            if (files.some(file => String(file?.type || '').startsWith('image/'))) return files;
+            for (const item of data.items || []) {
+                if (item.kind === 'file' && String(item.type || '').startsWith('image/')) {
+                    const file = item.getAsFile();
+                    if (file) files.push(file);
+                }
+            }
+            return files;
+        };
+        input.addEventListener('paste', event => {
+            const files = clipboardImages(event);
+            if (!files.some(file => String(file?.type || '').startsWith('image/'))) return;
+            event.preventDefault();
+            handleFiles(files);
+        });
+        input.addEventListener('dragover', event => {
+            if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+            event.preventDefault();
+            wrapper.classList.add('qc-resolve-dragover');
+        });
+        input.addEventListener('dragleave', event => {
+            if (!wrapper.contains(event.relatedTarget)) wrapper.classList.remove('qc-resolve-dragover');
+        });
+        input.addEventListener('drop', event => {
+            const files = [...(event.dataTransfer?.files || [])];
+            if (!files.length) return;
+            event.preventDefault();
+            wrapper.classList.remove('qc-resolve-dragover');
+            handleFiles(files);
+        });
     }
 
     function checkContext() {

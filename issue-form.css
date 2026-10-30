@@ -52,7 +52,10 @@ textarea.qc-resolve-input { min-height: 78px; resize: vertical; }
 .qc-resolve-input[aria-invalid='true'] { border-color: #d74b43; }
 .qc-resolve-dialog .qc-resolve-help { margin-top: 5px; color: var(--qc-muted); font-size: 12px; }
 .qc-resolve-dialog .qc-resolve-error { margin-top: 5px; color: #bd3028; font-size: 12px; }
-.qc-resolve-help:empty, .qc-resolve-error:empty { display: none; }
+.qc-resolve-help:empty, .qc-resolve-error:empty, .qc-resolve-image-status:empty { display: none; }
+.qc-resolve-dialog .qc-resolve-image-status { margin-top: 5px; color: var(--qc-muted); font-size: 12px; }
+.qc-resolve-image-status[data-error='true'] { color: #bd3028; }
+.qc-resolve-field.qc-resolve-dragover .qc-resolve-input { border-color: var(--qc-accent); box-shadow: 0 0 0 3px #2468f229; }
 .qc-resolve-choices { display: flex; flex-wrap: wrap; gap: 8px; }
 .qc-resolve-choice { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #d9e1eb; border-radius: 7px; cursor: pointer; background: #fff; font-size: 13px; }
 .qc-resolve-choice:has(input:checked) { background: #f0f5ff; border-color: #8fb1f6; color: #1b55c5; }

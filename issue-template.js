@@ -133,5 +133,24 @@ const IssueTemplate = (() => {
         return { sections, normalize, validate, buildMarkdown, draftId, isVisible: () => true };
     }
 
-    return { parseYaml };
+    function resolveTemplatePath(source) {
+        if (typeof source !== 'string' || source.length > MAX_TEMPLATE_LENGTH) return null;
+        let config;
+        try {
+            config = jsyaml.load(source, { schema: jsyaml.CORE_SCHEMA });
+        } catch {
+            return null;
+        }
+        if (!config || typeof config !== 'object' || Array.isArray(config) || config.version !== 1) return null;
+        const audit = config.audits?.bug_issue_close;
+        if (!audit || typeof audit !== 'object' || Array.isArray(audit) || audit.enabled !== true) return null;
+        if (typeof audit.template !== 'string') return null;
+        const path = audit.template.trim();
+        if (!path || path.length > 256 || path.startsWith('/') || path.includes('\\') ||
+            /[\u0000-\u001f\u007f?#]/.test(path) || /^[a-z][a-z0-9+.-]*:/i.test(path) ||
+            path.split('/').some(segment => !segment || segment === '.' || segment === '..')) return null;
+        return path;
+    }
+
+    return { parseYaml, resolveTemplatePath };
 })();

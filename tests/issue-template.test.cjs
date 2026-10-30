@@ -40,16 +40,19 @@ function response(body, status = 200, type = 'text/plain;charset=UTF-8') {
     return { ok: status === 200, status, headers: { get: () => type }, text: async () => body };
 }
 
-test('tries YAML first, then preserves the repository Markdown exactly', async () => {
+test('tries config and YAML first, then preserves the repository Markdown exactly', async () => {
     const markdown = '# Resolution\n\n<!-- notes -->\n- Version: 1.2\n';
     const requests = [];
     const fixture = setup(async (url, options) => {
         requests.push({ url, options });
-        return url.endsWith('.yml') ? response('', 404) : response(markdown);
+        return url.endsWith('config.yaml') || url.endsWith('.yml') ? response('', 404) : response(markdown);
     });
     await fixture.run();
-    assert.equal(requests[0].url, 'https://raw.gitcode.com/team/project/raw/master/.msbot/template/bug-close.yml');
-    assert.equal(requests[1].url, 'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/template/issue_resolve_template.md');
+    assert.deepEqual(requests.map(request => request.url), [
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/config.yaml',
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/template/bug-close.yml',
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/template/issue_resolve_template.md'
+    ]);
     assert.equal(requests[0].options.credentials, 'omit');
     assert.deepEqual(fixture.insertions, [['editor-1', markdown]]);
     assert.equal(fixture.button.disabled, false);
@@ -67,18 +70,20 @@ test('does not fetch outside an Issue detail page', async () => {
 });
 
 test('ignores repeated clicks while loading and restores the button', async () => {
-    let complete;
+    let release;
     let requests = 0;
-    const fixture = setup(() => {
+    const fixture = setup(url => {
         requests++;
-        return new Promise(resolve => { complete = resolve; });
+        if (requests === 1) return new Promise(resolve => { release = resolve; });
+        return Promise.resolve(url.endsWith('.yml') ? response(yaml) : response('', 404));
     });
     const pending = fixture.run();
     assert.equal(fixture.button.disabled, true);
     await fixture.run();
-    complete(response(yaml));
-    await pending;
     assert.equal(requests, 1);
+    release(response('', 404));
+    await pending;
+    assert.equal(requests, 2);
     assert.equal(fixture.forms.length, 1);
     assert.equal(fixture.insertions.length, 0);
     assert.equal(fixture.button.disabled, false);
@@ -136,13 +141,77 @@ test('opens a dynamic form from YAML without fetching Markdown or inserting raw 
     const requests = [];
     const fixture = setup(async url => { requests.push(url); return response(yaml, 200, 'application/yaml'); });
     await fixture.run();
-    assert.equal(requests.length, 1);
+    assert.deepEqual(requests, [
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/config.yaml',
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/template/bug-close.yml'
+    ]);
     assert.equal(fixture.insertions.length, 0);
     const schema = fixture.forms[0].schema;
     assert.equal(schema.sections[0].fields[0].label, '修复版本');
     assert.ok(schema.validate({}).version);
     await fixture.forms[0].onInsert(schema.buildMarkdown({ version: 'v2.0' }));
     assert.match(fixture.insertions[0][1], /\| 修复版本 \| v2.0 \|/);
+});
+
+test('reads the template declared by audits.bug_issue_close in .msbot/config.yaml', async () => {
+    const config = 'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: templates/close.yml\n    notification: engineering\n';
+    const requests = [];
+    const fixture = setup(async url => {
+        requests.push(url);
+        if (url.endsWith('/.msbot/config.yaml')) return response(config, 200, 'application/yaml');
+        if (url.endsWith('/templates/close.yml')) return response(yaml, 200, 'application/yaml');
+        return response('', 404);
+    });
+    await fixture.run();
+    assert.deepEqual(requests, [
+        'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/config.yaml',
+        'https://raw.gitcode.com/team/project/raw/HEAD/templates/close.yml'
+    ]);
+    assert.equal(fixture.forms.length, 1);
+    assert.equal(fixture.insertions.length, 0);
+    assert.equal(fixture.forms[0].schema.sections[0].fields[0].label, '修复版本');
+});
+
+test('ignores disabled, invalid, or unsafe config and falls back to the default template', async () => {
+    for (const config of [
+        'version: 2\naudits:\n  bug_issue_close:\n    enabled: true\n    template: templates/close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: false\n    template: templates/close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: ../close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: https://example.com/close.yml\n',
+        'not: [valid'
+    ]) {
+        const requests = [];
+        const fixture = setup(async url => {
+            requests.push(url);
+            if (url.endsWith('/.msbot/config.yaml')) return response(config, 200, 'application/yaml');
+            if (url.endsWith('/.msbot/template/bug-close.yml')) return response(yaml, 200, 'application/yaml');
+            return response('', 404);
+        });
+        await fixture.run();
+        assert.deepEqual(requests, [
+            'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/config.yaml',
+            'https://raw.gitcode.com/team/project/raw/HEAD/.msbot/template/bug-close.yml'
+        ], config);
+        assert.equal(fixture.forms.length, 1);
+        assert.equal(fixture.forms[0].schema.sections[0].fields[0].label, '修复版本');
+    }
+});
+
+test('falls back to the default template when the configured template cannot be used', async () => {
+    const config = 'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: templates/close.yml\n';
+    for (const configured of [response('', 404), response('body: [invalid'), response('<html>Sign in</html>', 200, 'text/html')]) {
+        const requests = [];
+        const fixture = setup(async url => {
+            requests.push(url);
+            if (url.endsWith('/.msbot/config.yaml')) return response(config, 200, 'application/yaml');
+            if (url.endsWith('/templates/close.yml')) return configured;
+            if (url.endsWith('/.msbot/template/bug-close.yml')) return response(yaml, 200, 'application/yaml');
+            return response('', 404);
+        });
+        await fixture.run();
+        assert.ok(requests.some(url => url.endsWith('/.msbot/template/bug-close.yml')));
+        assert.equal(fixture.forms.length, 1);
+    }
 });
 
 test('invalid YAML falls back to Markdown and then to the builtin form', async () => {

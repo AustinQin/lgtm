@@ -104,3 +104,23 @@ test('optional checkbox sections can contain only multiselect values', async () 
     assert.equal(schema.normalize({ choices: ['Linux'] }).choices[0], 'Linux');
     assert.equal(Object.keys(schema.validate({ choices: [] })).length, 0);
 });
+
+test('resolves the bug issue close template from a version 1 msbot config', () => {
+    const config = 'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: .msbot/template/bug-close.yml\n    notification: engineering\n';
+    assert.equal(parser.resolveTemplatePath(config), '.msbot/template/bug-close.yml');
+    assert.equal(parser.resolveTemplatePath('version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: templates/close.yml\n'), 'templates/close.yml');
+});
+
+test('ignores configs whose audit is disabled, unsupported, malformed or unsafe', () => {
+    for (const config of [
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: false\n    template: .msbot/template/bug-close.yml\n',
+        'version: 2\naudits:\n  bug_issue_close:\n    enabled: true\n    template: .msbot/template/bug-close.yml\n',
+        'version: 1\naudits:\n  other_audit:\n    enabled: true\n    template: .msbot/template/bug-close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: /etc/passwd\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: ../bug-close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: https://example.com/bug-close.yml\n',
+        'version: 1\naudits:\n  bug_issue_close:\n    enabled: true\n    template: ".msbot\\\\bug-close.yml"\n',
+        'audits: [', '', null, 'x'.repeat(128 * 1024 + 1)
+    ]) assert.equal(parser.resolveTemplatePath(config), null);
+});

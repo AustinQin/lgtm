@@ -17,9 +17,10 @@
 
 **关单说明按钮：**
 - 根据当前 Issue 页面地址自动识别仓库
-- 点击后优先读取该仓库 `master` 分支、根目录下的 `.msbot/template/bug-close.yml`，动态生成填写弹窗
+- 点击后优先读取默认分支的 `.msbot/config.yaml`；`audits.bug_issue_close.enabled` 为 `true` 时，读取 `audits.bug_issue_close.template` 指定的仓库路径作为模板
+- 配置不存在或不可用时，读取默认分支的 `.msbot/template/bug-close.yml`，动态生成填写弹窗
 - YAML 不存在、无法读取或格式不支持时，尝试默认分支的 `.msbot/template/issue_resolve_template.md`，将 Markdown 原文填入评论框
-- 两种仓库模板都不可用时打开内置表单；已有评论内容会保留，新内容追加到末尾
+- 以上模板都不可用时打开内置表单；已有评论内容会保留，新内容追加到末尾
 - 仅填入内容，不会自动提交评论
 - 当前通过公开原文地址读取，无需配置 Token；私有仓库或无法公开访问的文件使用默认模板
 - 模板填入后在页面顶部显示轻提示，5 秒后自动消失，不打断评论填写
@@ -28,7 +29,8 @@
 - 生成内容采用“信息表格 + 分段正文”：PR、版本、关联组件等放入表格，原因分析、修复方案和自测验证保留正文；空的选填项省略，代码块及截图语法保持原样
 - 草稿按仓库和 Issue 保存在扩展的本地存储中，关闭、刷新后可恢复；填入后仍保留草稿便于再次修改
 - 仓库 YAML 和内置表单的草稿分开保存；YAML 字段定义变化后不复用旧模板草稿
-- 截图在填入后的 GitCode 评论框中添加；自定义仓库 Markdown 模板仍直接填入，不转换为表单
+- 表单文本框支持直接粘贴或拖入图片，自动上传到当前仓库并插入 Markdown；也可在填入后的 GitCode 评论框中添加
+- 图片上传使用当前仓库的 `uploads/image_file` 接口，需要登录 GitCode；自定义仓库 Markdown 模板仍直接填入，不转换为表单
 - 编辑器不可用时显示错误提示，可重试
 
 **更多菜单（标签管理）：**
@@ -107,10 +109,12 @@
 2. 在评论区域会看到快捷按钮
    - 显示 `关单说明` 和 `更多` 按钮
 
-3. 点击 `关单说明`，按 YAML → Markdown → 内置表单的顺序读取模板
-   - `master` 分支的 `.msbot/template/bug-close.yml` 可用时，根据 YAML 字段打开表单
-   - YAML 不可用时尝试默认分支的 `.msbot/template/issue_resolve_template.md`，可用则直接填入原文
-   - 两者都不可用时打开内置表单；填写后点击「填入评论框」
+3. 点击 `关单说明`，按仓库配置 → YAML → Markdown → 内置表单的顺序读取模板
+   - 优先读取默认分支的 `.msbot/config.yaml`，按 `audits.bug_issue_close.template` 指定的路径读取模板
+   - 配置不可用时读取默认分支的 `.msbot/template/bug-close.yml`，根据 YAML 字段打开表单
+   - YAML 都不可用时尝试默认分支的 `.msbot/template/issue_resolve_template.md`，可用则直接填入原文
+   - 都不可用时打开内置表单；填写后点击「填入评论框」
+   - 表单文本框支持直接粘贴或拖入截图，上传成功后自动插入图片 Markdown
    - 点击「保存并关闭」或按 Esc 可关闭表单，下次打开继续填写；不同 Issue 的草稿互不影响
    - 或点击 `更多`，选择标签命令
 
@@ -121,6 +125,23 @@
 插件支持 SPA 页面切换，无需刷新：
 - 从首页切换到 PR/issue 页面会自动加载按钮
 - 在不同 PR/issue 之间切换会自动更新
+
+### 仓库关单模板配置
+
+仓库可在默认分支根目录放置 `.msbot/config.yaml` 指定关单模板：
+
+```yaml
+version: 1
+audits:
+  bug_issue_close:
+    enabled: true
+    template: .msbot/template/bug-close.yml
+    notification: engineering
+```
+
+- 仅当 `version` 为 `1`、`audits.bug_issue_close.enabled` 为 `true` 且 `template` 为仓库内的相对路径时生效。
+- `template` 指向的文件按仓库 YAML 模板格式解析；读取失败或格式不支持时回退到 `.msbot/template/bug-close.yml`，再回退到 Markdown 模板和内置表单。
+- 不允许绝对路径、`..`、URL 或反斜杠路径。
 
 ### 仓库 YAML 模板格式
 
@@ -158,7 +179,8 @@ body:
 - `manifest.json` - 插件配置文件
 - `content.js` - 主要功能脚本（content script）
 - `issue-form.js` - 默认关单说明表单、校验、草稿保存与 Markdown 生成
-- `issue-template.js` - 仓库 YAML 的解析、字段校验与动态表单模型
+- `issue-template.js` - `.msbot/config.yaml` 与仓库模板 YAML 的解析、字段校验与动态表单模型
+- `image-upload.js` - 表单图片上传：解析仓库 ID 并调用 GitCode 上传接口生成 Markdown
 - `vendor/` - 随插件打包的 YAML 解析器及许可证，不依赖运行时 CDN
 - `issue-form.css` - 表单弹窗及移动端样式
 - `inject.js` - 页面环境注入脚本
@@ -188,6 +210,16 @@ body:
    - 查看是否有错误信息
 
 ## 版本历史
+
+### v1.7
+- 关单表单文本/多行文本框支持粘贴或拖拽图片，自动上传并插入 Markdown
+- 图片上传使用当前仓库 `uploads/image_file` 接口，需要登录 GitCode
+- 新增图片上传状态与拖拽高亮提示
+
+### v1.6
+- 关单说明优先读取默认分支 `.msbot/config.yaml` 中 `audits.bug_issue_close.template` 指定的模板
+- 配置不可用时回退到 `.msbot/template/bug-close.yml`，再回退到 Markdown 模板和内置表单
+- 模板统一从默认分支读取，支持仓库自定义模板路径并校验路径安全性
 
 ### v1.5
 - 优先读取仓库 YAML 动态生成关单表单，兼容 Markdown 和内置表单回退

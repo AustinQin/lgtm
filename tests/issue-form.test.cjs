@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const vm = require('node:vm');
 
 const context = vm.createContext({ URL });
+vm.runInContext(readFileSync(require.resolve('../image-upload.js'), 'utf8'), context);
 vm.runInContext(readFileSync(require.resolve('../issue-form.js'), 'utf8'), context);
 const form = vm.runInContext('IssueResolveForm', context);
 const valid = {
