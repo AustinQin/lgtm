@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitCode Quick Comment",
-  "version": "1.7",
+  "version": "1.8",
   "permissions": ["storage"],
   "description": "Add quick review and issue management comments to GitCode pages",
   "host_permissions": [

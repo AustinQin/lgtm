@@ -34,6 +34,7 @@ const PAGE_COMMENTS = {
 let editorSequence = 0;
 let updateScheduled = false;
 let toastDismissTimer;
+let pullSubmissionPending = false;
 
 initPageEnvironment();
 initQuickComments();
@@ -97,8 +98,10 @@ function addQuickCommentButtons() {
 
         comments.direct.forEach(item => {
             const button = createQuickCommentButton(item.label, () => {
-                insertComment(editorId, item.value);
+                submitPullComment(editor, editorId, item.value);
             });
+            button.title = `直接提交 ${item.value} 评论`;
+            button.disabled = pullSubmissionPending;
             if (item.value === '/lgtm') {
                 button.classList.add('quick-comment-button--lgtm');
             }
@@ -141,7 +144,8 @@ function findEditorTarget(editor) {
     const modernActions = editor.querySelector('.comment-editor__submit');
     if (modernActions) {
         const sendButton = [...modernActions.querySelectorAll('button')]
-            .find(button => !button.classList.contains('cancel-btn'));
+            .find(button => !button.classList.contains('cancel-btn') &&
+                !button.closest('.quick-comment-buttons'));
         return sendButton ? { actions: modernActions, sendButton } : null;
     }
 
@@ -284,6 +288,44 @@ function showQuickCommentToast(message) {
     document.body.appendChild(toast);
     toast.textContent = message;
     toastDismissTimer = setTimeout(() => toast.remove(), 5000);
+}
+
+async function submitPullComment(editor, editorId, comment) {
+    if (pullSubmissionPending || !editor.isConnected || getPageType() !== 'pull') return;
+    const pathname = location.pathname;
+    pullSubmissionPending = true;
+    const setPending = pending => document.querySelectorAll(
+        '.quick-comment-buttons[data-page-type="pull"] button'
+    ).forEach(button => { button.disabled = pending; });
+    setPending(true);
+    try {
+        await new Promise((resolve, reject) => {
+            const requestId = crypto.randomUUID();
+            const finish = (success, error) => {
+                clearTimeout(timer);
+                window.removeEventListener(INSERT_RESPONSE_EVENT, onResponse);
+                if (success) resolve();
+                else reject(new Error(error || '无法确认提交结果，请检查评论列表和输入框，避免重复提交。'));
+            };
+            const onResponse = event => {
+                const response = parseEventDetail(event.detail);
+                if (response?.requestId === requestId) finish(response.success, response.error);
+            };
+            const timer = setTimeout(() => finish(false), 22000);
+            window.addEventListener(INSERT_RESPONSE_EVENT, onResponse);
+            window.dispatchEvent(new CustomEvent(INSERT_REQUEST_EVENT, {
+                detail: JSON.stringify({ action: 'submit', editorId, comment, requestId, pathname })
+            }));
+        });
+        if (location.pathname === pathname) {
+            showQuickCommentToast(`已提交 ${comment}`);
+        }
+    } catch (error) {
+        if (location.pathname === pathname) showQuickCommentToast(error.message);
+    } finally {
+        pullSubmissionPending = false;
+        setPending(false);
+    }
 }
 
 function insertCommentAndWait(editorId, comment) {
