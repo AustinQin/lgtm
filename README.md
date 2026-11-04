@@ -1,269 +1,53 @@
 # GitCode Quick Comment
 
-这是一个浏览器插件，为 GitCode 的 Pull Request 和 Issue 页面添加快捷评论按钮，提高代码审查和问题处理的效率。
+在 GitCode 的 PR 和 Issue 评论区添加快捷按钮，快速提交评审命令、填写关单说明。
 
-## 功能
+## 安装
 
-### Pull Request 页面功能
+- **Chrome**：[从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/gitcode-quick-comment/jomkbgbgkmiifmloikjcgklmiejdeadk)
+- **Edge**：[从 Microsoft Edge 加载项商店安装](https://microsoftedge.microsoft.com/addons/detail/gitcode-quick-comment/cdkhfdibiljhlnmhmhepfpbdcamolgib)
 
-**直接按钮：**
-- `/check-pr` - 直接提交 PR 检查命令
-- `compile` - 在按钮旁弹出“您确认要compile吗？”，确认后提交 "compile" 评论；点击取消、空白处或按 Esc 可关闭
-- `retry` - 直接提交重试命令
-- `/approve` - 在按钮旁弹出“您确认要approve吗？”，确认后提交批准合入评论；点击取消、空白处或按 Esc 可关闭
-- `/lgtm` - 直接提交 "Looks Good To Me" 评论
+安装后刷新已打开的 GitCode 页面。建议将扩展固定到浏览器工具栏，方便访问。
 
-点击后通过 GitCode 原生评论按钮提交，其中 `compile` 和 `/approve` 需要在按钮旁的确认浮层中再次确认，需要已登录且具备评论权限。评论框有内容时保留草稿并停止快捷提交；提交期间禁用快捷按钮。提交失败或结果不明确时不会自动重试，请先检查页面提示和评论列表。命令的实际效果取决于仓库机器人和用户权限。
+## 使用
 
-### Issue 页面功能
+登录 GitCode，打开 PR 或 Issue 详情页，在评论区使用快捷按钮。
 
-**关单说明按钮：**
-- 根据当前 Issue 页面地址自动识别仓库
-- 点击后优先读取默认分支的 `.msbot/config.yaml`；`audits.bug_issue_close.enabled` 为 `true` 时，读取 `audits.bug_issue_close.template` 指定的仓库路径作为模板
-- 配置不存在或不可用时，读取默认分支的 `.msbot/template/bug-close.yml`，动态生成填写弹窗
-- YAML 不存在、无法读取或格式不支持时，尝试默认分支的 `.msbot/template/issue_resolve_template.md`，将 Markdown 原文填入评论框
-- 以上模板都不可用时打开内置表单；已有评论内容会保留，新内容追加到末尾
-- 仅填入内容，不会自动提交评论
-- 当前通过公开原文地址读取，无需配置 Token；私有仓库或无法公开访问的文件使用默认模板
-- 模板填入后在页面顶部显示轻提示，5 秒后自动消失，不打断评论填写
-- 默认表单依据 `bug-close.yml` 定义，包含七个分组；可选分组默认折叠，选择无用户感知变更时隐藏相关字段
-- 表单校验必填项、Commit/PR 编号、链接格式，以及回归版本/链接至少填写一项，填写后自动生成 Markdown
-- 生成内容采用“信息表格 + 分段正文”：PR、版本、关联组件等放入表格，原因分析、修复方案和自测验证保留正文；空的选填项省略，代码块及截图语法保持原样
-- 草稿按仓库和 Issue 保存在扩展的本地存储中，关闭、刷新后可恢复；填入后仍保留草稿便于再次修改
-- 仓库 YAML 和内置表单的草稿分开保存；YAML 字段定义变化后不复用旧模板草稿
-- 表单文本框支持直接粘贴或拖入图片，自动上传到当前仓库并插入 Markdown；也可在填入后的 GitCode 评论框中添加
-- 图片上传使用当前仓库的 `uploads/image_file` 接口，需要登录 GitCode；自定义仓库 Markdown 模板仍直接填入，不转换为表单
-- 编辑器不可用时显示错误提示，可重试
+### PR 评审
 
-**更多菜单（标签管理）：**
-- `/label add triage-review` - 添加 triage-review 标签
-- `/label add triaged` - 添加 triaged 标签
-- `/label add pending` - 添加 pending 标签
-- `/label add feature` - 添加 feature 标签
-- `/label add resolved` - 添加 resolved 标签
-- `/label add stale` - 添加 stale 标签
-- `/label add duplicated` - 添加 duplicated 标签
-- `收到反馈，感谢！` - 快速插入感谢回复
+| 按钮 | 默认操作 |
+| --- | --- |
+| `/check-pr`、`retry`、`/lgtm` | 直接提交命令评论 |
+| `compile`、`/approve` | 二次确认后提交 |
 
-## 安装方法
+评论框已有内容时会停止快捷提交，请先提交或清空。命令的实际效果取决于仓库机器人配置和你的权限。
 
-### Chrome / Edge
+### Issue 管理
 
-1. **下载插件源码**
-   - 克隆仓库或下载 ZIP 文件
-   - 解压到本地文件夹
+- **关单说明**：填写原因、修复方案和版本信息，点击「填入评论框」，检查后手动提交。支持仓库模板，没有可用模板时使用内置表单。
+- **更多**：点击后直接提交常用标签命令或感谢回复；评论框已有内容时，请先提交或清空。
+- **草稿和图片**：关单表单自动保存本地草稿；粘贴或拖入图片会立即上传至当前 GitCode 仓库。
 
-2. **打开扩展管理页面**
-   - Chrome：访问 `chrome://extensions/`
-   - Edge：访问 `edge://extensions/`
+### 工具栏设置
 
-3. **启用开发者模式**
-   - 点击右上角的"开发者模式"开关
-   - 开关变为蓝色表示已启用
+点击扩展图标，可查看当前页面状态、启用或暂停快捷评论、隐藏和排序按钮，并为每个 PR 命令选择「填入评论框」「直接提交」或「确认后提交」。
 
-（Chrome：访问 `chrome://extensions/`）
-4. **加载插件**
-   - 点击"加载已解压的扩展程序"按钮
-   - 选择插件文件夹
-   - 确认插件已加载并启用
+设置自动保存在当前浏览器，重启后仍保留，不跨浏览器同步。「恢复默认」只重置设置，不删除关单草稿。关单说明仍需检查后手动提交。
 
-5. **固定插件（可选）**
-   - 在浏览器工具栏中找到插件图标
-   - 右键点击图标，选择"固定到工具栏"
+<details>
+<summary>从源码安装 / 试用最新功能</summary>
 
-### Firefox
+1. 下载并解压[源码 ZIP](https://github.com/AustinQin/lgtm/archive/refs/heads/main.zip)，或克隆本仓库。
+2. 打开 `chrome://extensions/`（Chrome）或 `edge://extensions/`（Edge），开启「开发者模式」。
+3. 点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的目录。
+4. 刷新 GitCode 页面。以后更新源码后，先在扩展管理页点击重新加载，再刷新页面。
 
-1. **下载插件源码**
-   - 克隆仓库或下载 ZIP 文件
-   - 解压到本地文件夹
+</details>
 
-2. **打开调试页面**
-   - 访问 `about:debugging`
+## 帮助
 
-3. **加载插件**
-   - 点击"此 Firefox"链接
-   - 点击"临时载入附加组件"按钮
-   - 选择插件文件夹中的 `manifest.json` 文件
-   - 确认插件已加载
+按钮未出现时，先刷新页面，并确认扩展已启用、当前为 GitCode PR / Issue 详情页且评论框已加载。也可通过工具栏面板检查按钮是否被隐藏。
 
-**注意：** Firefox 的临时加载在浏览器关闭后会失效，需要重新加载。
+[仓库模板配置](docs/templates.md) · [更新记录](CHANGELOG.md) · [隐私政策](PRIVACY.md) · [反馈问题](https://github.com/AustinQin/lgtm/issues)
 
-## 使用方法
-
-### Pull Request 页面使用
-
-1. 访问 GitCode 的任意 Pull Request 页面
-   - 例如：`https://gitcode.com/Ascend/mstt/pull/5310`
-
-2. 在评论区域会看到快捷按钮
-   - `/check-pr`、`compile`、`retry`、`/approve`、`/lgtm` 按钮
-
-3. 确认评论框为空，点击按钮直接提交对应评论
-   - `compile` 和 `/approve` 会先弹出确认浮层，点击“确认”后才提交
-   - 提交期间快捷按钮暂时禁用，避免重复点击
-   - 已有草稿时不会自动提交，请先处理草稿
-
-4. 在 GitCode 评论列表确认结果；失败或超时时检查输入框与页面提示，不要重复发送
-
-### Issue 页面使用
-
-1. 访问 GitCode 的任意 Issue 页面
-   - 例如：`https://gitcode.com/Ascend/mstt/issues/1234`
-
-2. 在评论区域会看到快捷按钮
-   - 显示 `关单说明` 和 `更多` 按钮
-
-3. 点击 `关单说明`，按仓库配置 → YAML → Markdown → 内置表单的顺序读取模板
-   - 优先读取默认分支的 `.msbot/config.yaml`，按 `audits.bug_issue_close.template` 指定的路径读取模板
-   - 配置不可用时读取默认分支的 `.msbot/template/bug-close.yml`，根据 YAML 字段打开表单
-   - YAML 都不可用时尝试默认分支的 `.msbot/template/issue_resolve_template.md`，可用则直接填入原文
-   - 都不可用时打开内置表单；填写后点击「填入评论框」
-   - 表单文本框支持直接粘贴或拖入截图，上传成功后自动插入图片 Markdown
-   - 点击「保存并关闭」或按 Esc 可关闭表单，下次打开继续填写；不同 Issue 的草稿互不影响
-   - 或点击 `更多`，选择标签命令
-
-4. 点击提交按钮发送评论
-
-### 页面切换
-
-插件支持 SPA 页面切换，无需刷新：
-- 从首页切换到 PR/issue 页面会自动加载按钮
-- 在不同 PR/issue 之间切换会自动更新
-
-### 仓库关单模板配置
-
-仓库可在默认分支根目录放置 `.msbot/config.yaml` 指定关单模板：
-
-```yaml
-version: 1
-audits:
-  bug_issue_close:
-    enabled: true
-    template: .msbot/template/bug-close.yml
-    notification: engineering
-```
-
-- 仅当 `version` 为 `1`、`audits.bug_issue_close.enabled` 为 `true` 且 `template` 为仓库内的相对路径时生效。
-- `template` 指向的文件按仓库 YAML 模板格式解析；读取失败或格式不支持时回退到 `.msbot/template/bug-close.yml`，再回退到 Markdown 模板和内置表单。
-- 不允许绝对路径、`..`、URL 或反斜杠路径。
-
-### 仓库 YAML 模板格式
-
-沿用 GitHub Issue Forms 的 `body` 结构：
-
-```yaml
-name: 关单说明
-body:
-  - type: input
-    id: fixed_version
-    attributes:
-      label: 修复版本
-      placeholder: 例如 v1.2.0
-    validations:
-      required: true
-  - type: textarea
-    id: verification
-    attributes:
-      label: 自测验证
-      description: 填写自测步骤与结果
-    validations:
-      required: true
-```
-
-- 支持 `input`、`textarea`、`dropdown`、`checkboxes`、`markdown`；字段必须有唯一 `id` 和 `attributes.label`。
-- `dropdown` 显示为单选按钮，`multiple: true` 显示为复选框；支持零起始的 `attributes.default` 选项下标。
-- 支持 `validations.required` 和复选框选项的 `required`；支持说明、占位提示和文本字段的 `attributes.value` 初始值。
-- `markdown` 中的标题用于分组，说明文字按纯文本展示，不执行 HTML；选填分组默认折叠。
-- 单行和选择项生成信息表格，多行字段生成正文段落；输出标题为「关单说明」，空项省略。
-- 仓库 YAML 以自身的必填规则为准，不推断描述文字中的条件或格式校验；例如填写“否”后要填“无”，由用户按说明填写。内置表单的条件显示与格式校验保持原样。
-- YAML 上限为 128 KiB 字符、80 个 body 项，每个选择字段最多 50 个选项；不支持自定义 YAML 标签或脚本。
-
-## 文件结构
-
-- `manifest.json` - 插件配置文件
-- `content.js` - 主要功能脚本（content script）
-- `issue-form.js` - 默认关单说明表单、校验、草稿保存与 Markdown 生成
-- `issue-template.js` - `.msbot/config.yaml` 与仓库模板 YAML 的解析、字段校验与动态表单模型
-- `image-upload.js` - 表单图片上传：解析仓库 ID 并调用 GitCode 上传接口生成 Markdown
-- `vendor/` - 随插件打包的 YAML 解析器及许可证，不依赖运行时 CDN
-- `issue-form.css` - 表单弹窗及移动端样式
-- `inject.js` - 页面环境注入脚本
-- `styles.css` - 按钮和菜单样式
-- `popup.html` - 插件弹出页面
-- `README.md` - 说明文档
-
-## 技术实现
-
-- 使用 Chrome 扩展的 Content Script API
-- 通过外部 JS 文件进入页面上下文，访问编辑器实例
-- 使用 CustomEvent 在 content script 和页面环境间通信
-- 同时兼容新版 PR 页面的 CodeMirror 6 和 Issue 页面的 CodeMirror 5
-- 支持 SPA 应用的路由变化监听
-
-## 故障排除
-
-### 按钮不显示
-
-1. **刷新页面**
-   - 按 F5 或 Ctrl+R 刷新页面
-   - 等待几秒钟让按钮加载
-
-2. **检查插件状态**
-   - 访问 `chrome://extensions/`
-   - 确认插件已启用
-   - 查看是否有错误信息
-
-## 版本历史
-
-### v1.8
-- PR 快捷评论按钮改为触发 GitCode 原生评论提交
-- `compile` 和 `/approve` 提交前需要在按钮旁二次确认，取消时不填入或提交评论
-- 保留已有草稿，阻止重复点击，校验页面和评论内容，结果不明确时不自动重试
-- Issue 关单说明和标签命令仍只填入输入框，由用户手动提交
-
-### v1.7
-- 关单表单文本/多行文本框支持粘贴或拖拽图片，自动上传并插入 Markdown
-- 图片上传使用当前仓库 `uploads/image_file` 接口，需要登录 GitCode
-- 新增图片上传状态与拖拽高亮提示
-
-### v1.6
-- 关单说明优先读取默认分支 `.msbot/config.yaml` 中 `audits.bug_issue_close.template` 指定的模板
-- 配置不可用时回退到 `.msbot/template/bug-close.yml`，再回退到 Markdown 模板和内置表单
-- 模板统一从默认分支读取，支持仓库自定义模板路径并校验路径安全性
-
-### v1.5
-- 优先读取仓库 YAML 动态生成关单表单，兼容 Markdown 和内置表单回退
-- 支持仓库定义的字段、选项、默认值和必填规则，草稿按模板隔离
-
-### v1.4
-- 默认关单说明改为分组表单，支持条件显示和字段校验
-- 新增本地草稿保存与恢复，需要扩展的 `storage` 权限
-- 一键生成 Markdown 填入原评论框，保留已有文字，由用户手动提交
-
-### v1.3
-- Issue 评论区新增「关单说明」按钮，读取当前仓库默认分支中的模板
-- 增加加载、成功及失败提示，保留已有评论内容
-- 加载期间切换到其他 Issue 时，不向新的评论区插入旧模板
-
-### v1.2
-- PR 页面仅展示 `/check-pr`、`compile`、`retry`、`/approve`、`/lgtm`
-- Issue 页面仅展示标签管理和感谢回复
-
-### v1.1
-- 适配新版 GitCode Pull Request 评论区
-- 同时兼容 CodeMirror 5 和 CodeMirror 6 编辑器
-- 减少重复 DOM 监听和对 GitCode 内部按钮样式的依赖
-
-### v1.0
-- 初始版本
-- 添加基础快捷评论功能
-- 支持标签管理功能
-- 支持 SPA 页面切换
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request 来改进这个插件。
-
-## 许可证
-
-MIT License
+本扩展为独立开发工具，与 GitCode 官方无隶属或背书关系。采用 MIT License。

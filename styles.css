@@ -29,8 +29,7 @@
   background: var(--theme-bg-base, #ffffff);
 }
 
-.quick-comment-button--lgtm,
-.quick-comment-button--lgtm:hover {
+.quick-comment-button--lgtm {
   border-color: #16a34a;
   background: var(--theme-bg-base, #ffffff);
   color: #16a34a;
@@ -42,8 +41,7 @@
   color: #15803d;
 }
 
-.quick-comment-button--warning,
-.quick-comment-button--warning:hover {
+.quick-comment-button--warning {
   border-color: #d97706;
   background: var(--theme-bg-base, #ffffff);
   color: #d97706;

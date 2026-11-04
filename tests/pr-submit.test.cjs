@@ -127,7 +127,7 @@ test('stops on PR navigation or editor removal before submission', async () => {
     }
 });
 
-test('does not submit on an Issue page or accept arbitrary commands', async () => {
+test('rejects a mismatched request pathname and arbitrary commands', async () => {
     const fixture = setup();
     assert.equal((await fixture.request({ pathname: '/team/project/issues/42' })).success, false);
     assert.equal((await fixture.request({ comment: 'unexpected', requestId: 'other' })).success, false);
@@ -226,6 +226,7 @@ function setupContent() {
         console: { warn() {} },
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
     });
+    vm.runInContext(readFileSync(require.resolve('../settings.js'), 'utf8'), context);
     vm.runInContext(readFileSync(require.resolve('../content.js'), 'utf8'), context);
     context.showQuickCommentToast = message => toasts.push(message);
     return { context, buttons, requests, toasts, window,
@@ -327,3 +328,168 @@ for (const command of ['compile', '/approve']) {
         assert.ok(fixture.buttons.every(button => !button.disabled));
     });
 }
+
+test('an insert-only PR command appends without requesting submission or confirmation', async () => {
+    const fixture = setupContent();
+    vm.runInContext("quickSettings.groups.pull.find(row => row.id === '/approve').mode = 'insert'", fixture.context);
+    fixture.context.confirmPullComment = () => assert.fail('must not confirm an insert-only command');
+    const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', '/approve');
+    assert.equal(fixture.requests[0].action, undefined);
+    fixture.respond({ requestId: 'content-request', success: true });
+    await pending;
+    assert.equal(fixture.toasts[0], '已填入 /approve，请检查后提交。');
+});
+
+test('the direct option bypasses confirmation and the confirm option applies to any PR command', async () => {
+    for (const [comment, mode] of [['compile', 'direct'], ['/lgtm', 'confirm']]) {
+        const fixture = setupContent();
+        vm.runInContext(`quickSettings.groups.pull.find(row => row.id === '${comment}').mode = '${mode}'`, fixture.context);
+        let confirmations = 0;
+        fixture.context.confirmPullComment = async () => { confirmations++; return true; };
+        const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', comment, { isConnected: true });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(confirmations, mode === 'confirm' ? 1 : 0);
+        assert.equal(fixture.requests[0].action, 'submit');
+        fixture.respond({ requestId: 'content-request', success: true });
+        await pending;
+    }
+});
+
+test('disabled, hidden or not-yet-loaded settings prevent command dispatch', async () => {
+    for (const change of ["quickSettings.enabled = false", "settingsReady = false",
+        "quickSettings.groups.pull.find(row => row.id === '/lgtm').visible = false"]) {
+        const fixture = setupContent();
+        vm.runInContext(change, fixture.context);
+        await fixture.context.submitPullComment({ isConnected: true }, 'editor-1', '/lgtm');
+        assert.equal(fixture.requests.length, 0);
+    }
+});
+
+test('a settings change cancels pending confirmation before any command is sent', async () => {
+    const fixture = setupContent();
+    let accept;
+    fixture.context.confirmPullComment = () => new Promise(resolve => { accept = resolve; });
+    const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', 'compile', { isConnected: true });
+    vm.runInContext('settingsRevision++', fixture.context);
+    accept(true);
+    await pending;
+    assert.equal(fixture.requests.length, 0);
+});
+
+test('a storage change during initial loading wins over the stale initial read', async () => {
+    const fixture = setupContent();
+    let finishRead, onChanged;
+    fixture.context.document.querySelectorAll = () => [];
+    fixture.context.IssueResolveForm = { checkContext() {} };
+    fixture.context.chrome = {
+        storage: { local: { get: () => new Promise(resolve => { finishRead = resolve; }) },
+            onChanged: { addListener: callback => { onChanged = callback; } } },
+        runtime: { onMessage: { addListener() {} } }
+    };
+    vm.runInContext('settingsReady = false; initSettings()', fixture.context);
+    await fixture.context.submitPullComment({ isConnected: true }, 'editor-1', '/lgtm');
+    assert.equal(fixture.requests.length, 0);
+    onChanged({ quickCommentSettings: { newValue: { enabled: false } } }, 'local');
+    finishRead({ quickCommentSettings: { enabled: true } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(vm.runInContext('quickSettings.enabled', fixture.context), false);
+    assert.equal(vm.runInContext('settingsReady', fixture.context), true);
+});
+
+test('failed initial storage reads do not fall back to submitting with default settings', async () => {
+    const fixture = setupContent();
+    fixture.context.chrome = {
+        storage: { local: { get: async () => { throw Error('unavailable'); } }, onChanged: { addListener() {} } },
+        runtime: { onMessage: { addListener() {} } }
+    };
+    vm.runInContext('settingsReady = false; initSettings()', fixture.context);
+    await new Promise(resolve => setImmediate(resolve));
+    await fixture.context.submitPullComment({ isConnected: true }, 'editor-1', '/lgtm');
+    assert.equal(fixture.requests.length, 0);
+    assert.equal(vm.runInContext('settingsError', fixture.context), true);
+});
+
+const issueReplies = require('../settings.js').groups.replies;
+for (const cm5 of [false, true]) {
+    test(`submits every Issue menu reply exactly once with CodeMirror ${cm5 ? 5 : 6}`, async () => {
+        for (const item of issueReplies) {
+            const fixture = setup({ cm5, onClick(state) {
+                assert.equal(state.value, item.value);
+                state.value = '';
+            } });
+            fixture.location.pathname = '/team/project/issues/42';
+            assert.equal((await fixture.request({ comment: item.value })).success, true);
+            assert.equal(fixture.state.clicks, 1);
+            assert.equal(fixture.state.writes, 1);
+        }
+    });
+}
+
+test('direct submission allowlists are restricted to their respective page types', async () => {
+    for (const [route, comment] of [
+        ['issues/42', '/lgtm'], ['pull/42', '/label add resolved'],
+        ['issues/42', '/label add arbitrary'], ['issues/42', 'arbitrary reply'],
+        ['tree/main', '/label add resolved']
+    ]) {
+        const fixture = setup();
+        fixture.location.pathname = `/team/project/${route}`;
+        assert.equal((await fixture.request({ comment })).success, false);
+        assert.equal(fixture.state.clicks, 0);
+        assert.equal(fixture.state.writes, 0);
+    }
+});
+
+test('Issue submission preserves existing text and refuses close-and-comment native actions', async () => {
+    for (const options of [{ value: 'unfinished issue comment' }, {
+        candidates: button => [{ ...button, textContent: '评论并关闭 Issue' }]
+    }]) {
+        const fixture = setup(options);
+        fixture.location.pathname = '/team/project/issues/42';
+        assert.equal((await fixture.request({ comment: '/label add resolved' })).success, false);
+        assert.equal(fixture.state.clicks, 0);
+        assert.equal(fixture.state.writes, 0);
+        assert.equal(fixture.state.value, options.value || '');
+    }
+});
+
+test('Issue submission stops if navigation occurs while waiting for the native button', async () => {
+    const fixture = setup({ disabled: true, onTick(state, location) {
+        location.pathname = '/team/project/issues/43';
+    } });
+    fixture.location.pathname = '/team/project/issues/42';
+    assert.match((await fixture.request({ comment: '/label add pending' })).error, /页面已切换/);
+    assert.equal(fixture.state.clicks, 0);
+});
+
+test('Issue menu dispatches directly, locks repeated clicks and shows a short success message', async () => {
+    const fixture = setupContent();
+    fixture.context.location.pathname = '/team/project/issues/42';
+    const editor = { isConnected: true };
+    const pending = fixture.context.submitIssueComment(editor, 'editor-1', 'thanks');
+    await fixture.context.submitIssueComment(editor, 'editor-1', '/label add pending');
+    assert.equal(fixture.requests.length, 1);
+    assert.equal(fixture.requests[0].action, 'submit');
+    assert.equal(fixture.requests[0].comment, issueReplies.at(-1).value);
+    assert.ok(fixture.buttons.every(button => button.disabled));
+    fixture.respond({ requestId: 'content-request', success: true });
+    await pending;
+    assert.ok(fixture.buttons.every(button => !button.disabled));
+    assert.deepEqual(fixture.toasts, ['已提交 收到反馈，感谢！']);
+});
+
+test('Issue menu respects settings and rejects stale or disconnected contexts', async () => {
+    for (const change of [
+        'quickSettings.enabled = false', 'settingsReady = false',
+        "quickSettings.groups.issue.find(row => row.id === 'more').visible = false",
+        "quickSettings.groups.replies.find(row => row.id === 'thanks').visible = false",
+        "location.pathname = '/team/project/issues/43'", "location.pathname = '/team/project/pull/42'",
+        'editor.isConnected = false'
+    ]) {
+        const fixture = setupContent();
+        fixture.context.location.pathname = '/team/project/issues/42';
+        fixture.context.editor = { isConnected: true };
+        vm.runInContext(change, fixture.context);
+        await fixture.context.submitIssueComment(fixture.context.editor, 'editor-1', 'thanks', '/team/project/issues/42');
+        assert.equal(fixture.requests.length, 0, change);
+    }
+});

@@ -27,6 +27,7 @@ function setup(fetch) {
         recordToast: message => toasts.push(message)
     });
     vm.runInContext(readFileSync(require.resolve('../issue-template.js'), 'utf8'), context);
+    vm.runInContext(readFileSync(require.resolve('../settings.js'), 'utf8'), context);
     vm.runInContext(source, context);
     vm.runInContext('insertCommentAndWait = recordInsertion', context);
     vm.runInContext('showQuickCommentToast = recordToast', context);

@@ -95,8 +95,8 @@
         if (submissionPending) throw new Error('正在提交评论，请稍候。');
         const pathname = request.pathname;
         const isCurrent = () => editor.isConnected && location.pathname === pathname;
-        if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(pathname || '') || !isCurrent()) {
-            throw new Error('页面已切换，请在当前 PR 重新操作。');
+        if (!/^\/[^/]+\/[^/]+\/(?:pull|issues)\/\d+(?:\/|$)/.test(pathname || '') || !isCurrent()) {
+            throw new Error('页面已切换，请在当前页面重新操作。');
         }
         const value = readComment(editor);
         if (value === null) throw new Error('无法读取评论框，请刷新页面后重试。');
@@ -123,7 +123,7 @@
             // GitCode owns the network request. Do not retry when its result is uncertain.
             const submittedDeadline = Date.now() + 15000;
             while (Date.now() < submittedDeadline) {
-                if (!isCurrent()) throw new Error('页面已切换，无法确认提交结果，请检查原 PR 的评论列表。');
+                if (!isCurrent()) throw new Error('页面已切换，无法确认提交结果，请检查原页面的评论列表。');
                 if (readComment(editor) === '') {
                     await delay(1000);
                     return;
@@ -158,7 +158,14 @@
             );
             if (!editor) throw new Error('评论框已不可用，请刷新页面后重试。');
             if (request.action === 'submit') {
-                if (!['/check-pr', 'compile', 'retry', '/approve', '/lgtm'].includes(request.comment)) {
+                const page = (request.pathname || '').match(/^\/[^/]+\/[^/]+\/(pull|issues)\/\d+(?:\/|$)/)?.[1];
+                const commands = page === 'pull' ? ['/check-pr', 'compile', 'retry', '/approve', '/lgtm']
+                    : page === 'issues' ? [
+                        ...['triage-review', 'triaged', 'pending', 'feature', 'resolved', 'stale', 'duplicated']
+                            .map(tag => `/label add ${tag}`),
+                        '收到反馈，感谢！我会尽快查看并回复进展。'
+                    ] : [];
+                if (!commands.includes(request.comment)) {
                     throw new Error('不支持此快捷提交命令。');
                 }
                 await submitComment(editor, request);

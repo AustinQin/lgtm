@@ -5,40 +5,20 @@ const ISSUE_CONFIG_PATH = '.msbot/config.yaml';
 const ISSUE_TEMPLATE_PATH = '.msbot/template/bug-close.yml';
 const ISSUE_TEMPLATE_REF = 'HEAD';
 const ISSUE_MARKDOWN_TEMPLATE_PATH = '.msbot/template/issue_resolve_template.md';
-const PAGE_COMMENTS = {
-    pull: {
-        direct: [
-            { label: '/check-pr', value: '/check-pr' },
-            { label: 'compile', value: 'compile' },
-            { label: 'retry', value: 'retry' },
-            { label: '/approve', value: '/approve' },
-            { label: '/lgtm', value: '/lgtm' }
-        ],
-        more: []
-    },
-    issue: {
-        direct: [],
-        more: [
-            { label: '/label add triage-review', value: '/label add triage-review' },
-            { label: '/label add triaged', value: '/label add triaged' },
-            { label: '/label add pending', value: '/label add pending' },
-            { label: '/label add feature', value: '/label add feature' },
-            { label: '/label add resolved', value: '/label add resolved' },
-            { label: '/label add stale', value: '/label add stale' },
-            { label: '/label add duplicated', value: '/label add duplicated' },
-            { label: '收到反馈，感谢！', value: '收到反馈，感谢！我会尽快查看并回复进展。' }
-        ]
-    }
-};
+let quickSettings = QuickCommentSettings.normalize();
+let settingsReady = typeof chrome === 'undefined';
+let settingsRevision = 0;
+let settingsError = false;
 
 let editorSequence = 0;
 let updateScheduled = false;
 let toastDismissTimer;
-let pullSubmissionPending = false;
+let commentSubmissionPending = false;
 let activePullConfirm = null;
 
 initPageEnvironment();
 initQuickComments();
+initSettings();
 
 function initPageEnvironment() {
     if (document.querySelector('#gitcode-quick-comment-inject')) return;
@@ -78,72 +58,106 @@ function scheduleButtonUpdate() {
     });
 }
 
+function applySettings(value) {
+    quickSettings = QuickCommentSettings.normalize(value);
+    settingsReady = true;
+    settingsError = false;
+    settingsRevision++;
+    activePullConfirm?.close(false);
+    document.querySelector('.quick-comment-menu')?.closeQuickCommentMenu?.();
+    document.querySelectorAll('.quick-comment-buttons, .quick-comment-template-status').forEach(node => node.remove());
+    IssueResolveForm.checkContext();
+    scheduleButtonUpdate();
+}
+
+function initSettings() {
+    if (typeof chrome === 'undefined') return;
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes[QuickCommentSettings.KEY]) {
+            applySettings(changes[QuickCommentSettings.KEY].newValue);
+        }
+    });
+    const revision = settingsRevision;
+    chrome.storage.local.get(QuickCommentSettings.KEY).then(result => {
+        if (revision === settingsRevision) applySettings(result[QuickCommentSettings.KEY]);
+    }).catch(() => {
+        if (revision === settingsRevision) { settingsError = true; scheduleButtonUpdate(); }
+    });
+    chrome.runtime.onMessage.addListener((message, sender, respond) => {
+        if (message?.type !== 'quick-comment-status') return;
+        const context = QuickCommentSettings.pageContext(location.href);
+        const editorReady = [...document.querySelectorAll('.comment-editor, .g-discussion-item')]
+            .some(editor => findEditorTarget(editor));
+        const visible = context.kind === 'pull' || context.kind === 'issue'
+            ? QuickCommentSettings.items(quickSettings, context.kind).some(item =>
+                item.id !== 'more' || QuickCommentSettings.items(quickSettings, 'replies').length > 0)
+            : false;
+        respond({ ...context, enabled: quickSettings.enabled, settingsReady, settingsError, editorReady, visible });
+    });
+}
+
 function addQuickCommentButtons() {
     IssueResolveForm.checkContext();
     activePullConfirm?.checkContext();
+    document.querySelector('.quick-comment-menu')?.checkContext?.();
     const pageType = getPageType();
-    const comments = PAGE_COMMENTS[pageType];
-    if (!comments) return;
-
+    if (!settingsReady || !quickSettings.enabled || !pageType) {
+        document.querySelectorAll('.quick-comment-buttons').forEach(node => node.remove());
+        document.querySelector('.quick-comment-menu')?.closeQuickCommentMenu?.();
+        return;
+    }
+    const items = QuickCommentSettings.items(quickSettings, pageType);
+    const replies = QuickCommentSettings.items(quickSettings, 'replies');
     document.querySelectorAll('.comment-editor, .g-discussion-item').forEach(editor => {
         const target = findEditorTarget(editor);
         if (!target) return;
-
         const existingButtons = target.actions.querySelector('.quick-comment-buttons');
-        if (existingButtons?.dataset.pageType === pageType) return;
+        const signature = `${pageType}:${location.pathname}:${settingsRevision}`;
+        if (existingButtons?.dataset.signature === signature) return;
         existingButtons?.remove();
-
         const editorId = getEditorId(editor);
         const buttons = document.createElement('div');
         buttons.className = 'quick-comment-buttons';
         buttons.dataset.pageType = pageType;
+        buttons.dataset.signature = signature;
 
-        comments.direct.forEach(item => {
-            const button = createQuickCommentButton(item.label, () => {
-                submitPullComment(editor, editorId, item.value, button);
-            });
-            button.title = `直接提交 ${item.value} 评论`;
-            button.disabled = pullSubmissionPending;
-            if (item.value === '/lgtm') {
-                button.classList.add('quick-comment-button--lgtm');
-            }
-            if (item.value === 'compile' || item.value === '/approve') {
-                button.title = `确认后提交 ${item.value} 评论`;
-                button.setAttribute('aria-haspopup', 'dialog');
+        items.forEach(item => {
+            if (pageType === 'pull') {
+                const button = createQuickCommentButton(item.label, () => {
+                    submitPullComment(editor, editorId, item.id, button);
+                });
+                button.title = `${QuickCommentSettings.modes[item.mode]} ${item.id} 评论`;
+                button.disabled = commentSubmissionPending;
+                if (item.id === '/lgtm') button.classList.add('quick-comment-button--lgtm');
+                if (item.mode === 'confirm') {
+                    button.setAttribute('aria-haspopup', 'dialog');
+                    button.setAttribute('aria-expanded', 'false');
+                }
+                if (item.id === 'compile') button.classList.add('quick-comment-button--warning');
+                buttons.appendChild(button);
+            } else if (item.id === 'resolve') {
+                const button = createQuickCommentButton('关单说明', () => insertIssueTemplate(editor, editorId, button));
+                button.title = `读取当前仓库默认分支的 ${ISSUE_CONFIG_PATH} 或 ${ISSUE_TEMPLATE_PATH}`;
+                buttons.appendChild(button);
+            } else if (item.id === 'more' && replies.length) {
+                const button = createQuickCommentButton('更多', event => {
+                    event.stopPropagation();
+                    toggleQuickCommentMenu(button, editor, editorId, replies);
+                });
+                button.disabled = commentSubmissionPending;
+                button.classList.add('quick-comment-more-btn');
+                button.setAttribute('aria-haspopup', 'menu');
                 button.setAttribute('aria-expanded', 'false');
+                buttons.appendChild(button);
             }
-            if (item.value === 'compile') {
-                button.classList.add('quick-comment-button--warning');
-            }
-            buttons.appendChild(button);
         });
-
-        if (pageType === 'issue') {
-            const templateButton = createQuickCommentButton('关单说明', () => {
-                insertIssueTemplate(editor, editorId, templateButton);
-            });
-            templateButton.title = `读取当前仓库默认分支的 ${ISSUE_CONFIG_PATH} 或 ${ISSUE_TEMPLATE_PATH}`;
-            buttons.appendChild(templateButton);
-        }
-
-        if (comments.more.length > 0) {
-            const moreButton = createQuickCommentButton('更多', event => {
-                event.stopPropagation();
-                toggleQuickCommentMenu(moreButton, editorId, comments.more);
-            });
-            moreButton.classList.add('quick-comment-more-btn');
-            moreButton.setAttribute('aria-haspopup', 'menu');
-            moreButton.setAttribute('aria-expanded', 'false');
-            buttons.appendChild(moreButton);
-        }
-
         target.actions.insertBefore(buttons, target.sendButton);
     });
 }
 
 function getPageType() {
-    if (/\/pull\/\d+/.test(location.pathname)) return 'pull';
-    if (/\/issues\/\d+/.test(location.pathname)) return 'issue';
+    if (/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(location.pathname)) return 'pull';
+    if (/^\/[^/]+\/[^/]+\/issues\/\d+(?:\/|$)/.test(location.pathname)) return 'issue';
     return null;
 }
 
@@ -328,7 +342,7 @@ function confirmPullComment(trigger, editor, comment) {
         popup.append(message, actions);
         let closed = false;
         const isCurrent = () => trigger.isConnected && editor.isConnected &&
-            !trigger.disabled && !pullSubmissionPending && location.pathname === pathname;
+            !trigger.disabled && !commentSubmissionPending && location.pathname === pathname;
 
         function close(accepted, restoreFocus = false) {
             if (closed) return;
@@ -397,63 +411,82 @@ function confirmPullComment(trigger, editor, comment) {
 }
 
 async function submitPullComment(editor, editorId, comment, trigger) {
-    if (pullSubmissionPending || !editor.isConnected || getPageType() !== 'pull') return;
+    if (!settingsReady || !quickSettings.enabled || commentSubmissionPending || !editor.isConnected || getPageType() !== 'pull') return;
+    const item = quickSettings.groups.pull.find(item => item.id === comment && item.visible);
+    if (!item) return;
     const pathname = location.pathname;
-    if (comment === 'compile' || comment === '/approve') {
+    const revision = settingsRevision;
+    if (item.mode === 'insert') {
+        activePullConfirm?.close(false);
+        try {
+            await insertCommentAndWait(editorId, comment);
+            if (location.pathname === pathname) showQuickCommentToast(`已填入 ${comment}，请检查后提交。`);
+        } catch { showQuickCommentToast('无法填入评论框，请刷新页面后重试。'); }
+        return;
+    }
+    if (item.mode === 'confirm') {
         if (!trigger?.isConnected || !await confirmPullComment(trigger, editor, comment)) return;
-        if (pullSubmissionPending || !editor.isConnected || location.pathname !== pathname) return;
+        if (!quickSettings.enabled || settingsRevision !== revision || commentSubmissionPending || !editor.isConnected || location.pathname !== pathname) return;
     } else activePullConfirm?.close(false);
-    pullSubmissionPending = true;
+    await submitQuickComment(editorId, comment, pathname);
+}
+
+async function submitIssueComment(editor, editorId, itemId, pathname = location.pathname) {
+    if (!settingsReady || !quickSettings.enabled || commentSubmissionPending || !editor.isConnected ||
+        getPageType() !== 'issue' || location.pathname !== pathname) return;
+    if (!QuickCommentSettings.items(quickSettings, 'issue').some(item => item.id === 'more')) return;
+    const item = QuickCommentSettings.items(quickSettings, 'replies').find(item => item.id === itemId);
+    if (!item) return;
+    await submitQuickComment(editorId, item.value, pathname, item.label);
+}
+
+async function submitQuickComment(editorId, comment, pathname, label = comment) {
+    commentSubmissionPending = true;
     const setPending = pending => document.querySelectorAll(
-        '.quick-comment-buttons[data-page-type="pull"] button'
+        '.quick-comment-buttons[data-page-type="pull"] button, .quick-comment-more-btn'
     ).forEach(button => { button.disabled = pending; });
     setPending(true);
     try {
-        await new Promise((resolve, reject) => {
-            const requestId = crypto.randomUUID();
-            const finish = (success, error) => {
-                clearTimeout(timer);
-                window.removeEventListener(INSERT_RESPONSE_EVENT, onResponse);
-                if (success) resolve();
-                else reject(new Error(error || '无法确认提交结果，请检查评论列表和输入框，避免重复提交。'));
-            };
-            const onResponse = event => {
-                const response = parseEventDetail(event.detail);
-                if (response?.requestId === requestId) finish(response.success, response.error);
-            };
-            const timer = setTimeout(() => finish(false), 22000);
-            window.addEventListener(INSERT_RESPONSE_EVENT, onResponse);
-            window.dispatchEvent(new CustomEvent(INSERT_REQUEST_EVENT, {
-                detail: JSON.stringify({ action: 'submit', editorId, comment, requestId, pathname })
-            }));
-        });
+        await requestEditorUpdate({ action: 'submit', editorId, comment, pathname }, 22000,
+            '无法确认提交结果，请检查评论列表和输入框，避免重复提交。');
         if (location.pathname === pathname) {
-            showQuickCommentToast(`已提交 ${comment}`);
+            showQuickCommentToast(`已提交 ${label}`);
         }
     } catch (error) {
         if (location.pathname === pathname) showQuickCommentToast(error.message);
     } finally {
-        pullSubmissionPending = false;
+        commentSubmissionPending = false;
         setPending(false);
     }
 }
 
-function insertCommentAndWait(editorId, comment) {
+async function insertCommentAndWait(editorId, comment) {
+    const errorMessage = '模板已读取，但无法填入评论框。请刷新页面后重试。';
+    try {
+        await requestEditorUpdate({ editorId, comment }, 2000, errorMessage);
+    } catch {
+        throw new Error(errorMessage);
+    }
+}
+
+function requestEditorUpdate(payload, timeout, fallbackError) {
     return new Promise((resolve, reject) => {
         const requestId = crypto.randomUUID();
-        const finish = success => {
+        const finish = (success, error) => {
             clearTimeout(timer);
             window.removeEventListener(INSERT_RESPONSE_EVENT, onResponse);
             if (success) resolve();
-            else reject(new Error('模板已读取，但无法填入评论框。请刷新页面后重试。'));
+            else reject(new Error(error || fallbackError));
         };
         const onResponse = event => {
             const response = parseEventDetail(event.detail);
-            if (response?.requestId === requestId) finish(response.success);
+            if (response?.requestId === requestId) finish(response.success, response.error);
         };
-        const timer = setTimeout(() => finish(false), 2000);
+        const timer = setTimeout(() => finish(false), timeout);
         window.addEventListener(INSERT_RESPONSE_EVENT, onResponse);
-        insertComment(editorId, comment, requestId);
+        window.dispatchEvent(new CustomEvent(INSERT_REQUEST_EVENT, {
+            detail: JSON.stringify({ ...payload, requestId })
+        }));
     });
 }
 
@@ -466,13 +499,12 @@ function createQuickCommentButton(label, onClick) {
     return button;
 }
 
-function insertComment(editorId, comment, requestId) {
-    window.dispatchEvent(new CustomEvent(INSERT_REQUEST_EVENT, {
-        detail: JSON.stringify({ editorId, comment, requestId })
-    }));
-}
-
-function toggleQuickCommentMenu(button, editorId, menuItems) {
+function toggleQuickCommentMenu(button, editor, editorId, menuItems) {
+    if (commentSubmissionPending) return;
+    const pathname = location.pathname;
+    const revision = settingsRevision;
+    const isCurrent = () => button.isConnected && editor.isConnected &&
+        location.pathname === pathname && settingsRevision === revision;
     const existingMenu = document.querySelector('.quick-comment-menu');
     if (existingMenu) {
         const isSameButton = existingMenu.triggerButton === button;
@@ -491,9 +523,10 @@ function toggleQuickCommentMenu(button, editorId, menuItems) {
         menuItem.type = 'button';
         menuItem.setAttribute('role', 'menuitem');
         menuItem.textContent = item.label;
+        menuItem.title = `直接提交 ${item.label}`;
         menuItem.addEventListener('click', () => {
-            insertComment(editorId, item.value);
             closeMenu();
+            if (isCurrent()) submitIssueComment(editor, editorId, item.id, pathname);
         });
         menu.appendChild(menuItem);
     });
@@ -513,6 +546,7 @@ function toggleQuickCommentMenu(button, editorId, menuItems) {
         if (event.key === 'Escape') closeMenu();
     };
     menu.closeQuickCommentMenu = closeMenu;
+    menu.checkContext = () => { if (!isCurrent()) closeMenu(); };
 
     document.body.appendChild(menu);
     positionMenu(menu, button);

@@ -1,26 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <style>
-    body {
-      width: 300px;
-      padding: 10px;
-      font-family: Arial, sans-serif;
-    }
-    h1 {
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
-    p {
-      font-size: 12px;
-      margin: 5px 0;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <script src="settings.js" defer></script>
+  <script src="popup.js" defer></script>
 </head>
 <body>
-  <h1>GitCode Quick Comment</h1>
-  <p>在 GitCode PR 和 Issue 页面添加快捷评论</p>
-  <p>PR 快捷评审，Issue 快捷标签管理</p>
+  <header class="header">
+    <img src="icon48.png" width="34" height="34" alt="">
+    <div class="brand"><h1>GitCode Quick Comment</h1><p>快捷评审 · 轻松关单</p></div>
+    <label class="switch" title="启用快捷评论"><input id="enabled" type="checkbox" role="switch" aria-label="启用快捷评论" disabled><span></span></label>
+  </header>
+  <main>
+    <section class="page-status" aria-label="当前页面">
+      <div class="status-line"><span class="eyebrow">当前页面</span><span id="page-badge" class="badge">检测中</span></div>
+      <div id="repository" class="repository">正在读取页面状态…</div>
+      <p id="page-detail" class="page-detail">打开 GitCode PR 或 Issue 页面使用快捷评论。</p>
+    </section>
+    <div class="section-heading"><h2>快捷按钮</h2><span>勾选显示，箭头排序</span></div>
+    <div class="tabs" role="tablist" aria-label="页面设置">
+      <button id="pull-tab" role="tab" aria-selected="true" aria-controls="pull-panel" data-tab="pull">PR 评审</button>
+      <button id="issue-tab" role="tab" aria-selected="false" aria-controls="issue-panel" data-tab="issue" tabindex="-1">Issue 管理</button>
+    </div>
+    <fieldset id="controls" disabled>
+      <legend class="sr-only">快捷评论设置</legend>
+      <section id="pull-panel" role="tabpanel" aria-labelledby="pull-tab">
+        <div class="column-labels"><span>命令</span><span>点击后的操作</span><span>排序</span></div>
+        <div id="pull-list" class="rows"></div>
+        <p class="hint">直接提交和确认后提交仅在评论框为空时执行。</p>
+      </section>
+      <section id="issue-panel" role="tabpanel" aria-labelledby="issue-tab" hidden>
+        <p class="issue-note">关单说明填入后手动提交；更多菜单点击后直接提交。</p>
+        <div id="issue-list" class="rows"></div>
+        <h3>更多菜单</h3>
+        <div id="replies-list" class="rows reply-rows"></div>
+      </section>
+    </fieldset>
+    <div class="save-line"><span id="save-status" role="status" aria-live="polite">正在加载设置…</span><button id="reset" class="text-button" disabled>恢复默认</button><button id="retry" class="text-button" hidden>重试</button></div>
+  </main>
+  <footer><span id="version"></span><nav aria-label="支持"><a href="https://github.com/AustinQin/lgtm#readme" target="_blank" rel="noopener noreferrer">使用帮助</a><span aria-hidden="true">·</span><a href="https://github.com/AustinQin/lgtm/issues" target="_blank" rel="noopener noreferrer">反馈问题 ↗</a></nav></footer>
 </body>
 </html>
