@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>离线安装 · GitCode Quick Comment</title>
+<meta name="description" content="下载 GitCode Quick Comment 离线包并通过加载已解压的扩展程序安装。">
+<link rel="icon" href="assets/icon128.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html"><img src="assets/icon128.png" alt="">GitCode Quick Comment</a>
+    <span class="chip">v1.9</span>
+    <nav>
+      <a href="index.html">下载</a>
+      <a href="online.html">在线安装</a>
+      <a href="offline.html" aria-current="page">离线安装</a>
+      <a href="guide.html">使用指南</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>离线安装</h1>
+  <p class="lead">适合内网或无法访问应用商店的环境。先下载离线包，再加载解压后的文件夹。</p>
+
+  <p class="actions" style="margin-bottom:28px">
+    <a class="btn btn-primary" href="downloads/gitcode-quick-comment-v1.9.zip" download>下载 gitcode-quick-comment-v1.9.zip</a>
+  </p>
+
+  <ol class="steps">
+    <li>
+      <div class="num">1</div>
+      <div>
+        <h3>解压离线包</h3>
+        <p>把 zip 解压到一个固定目录，例如 <code>~/extensions/gitcode-quick-comment</code>。解压后目录里应能直接看到 <code>manifest.json</code>，不要再套一层多余文件夹。</p>
+      </div>
+    </li>
+    <li>
+      <div class="num">2</div>
+      <div>
+        <h3>开启开发者模式并加载</h3>
+        <p>打开 <code>chrome://extensions/</code>（Edge 为 <code>edge://extensions/</code>），打开右上角「开发者模式」，点击「加载未打包的扩展程序」，选择解压出的文件夹。</p>
+        <figure>
+          <img class="shot" src="assets/a1-load-unpacked.png" alt="Chrome 扩展程序页面的加载未打包的扩展程序按钮" loading="lazy">
+          <figcaption>开发者模式 → 加载未打包的扩展程序。</figcaption>
+        </figure>
+      </div>
+    </li>
+    <li>
+      <div class="num">3</div>
+      <div>
+        <h3>确认启用</h3>
+        <p>扩展卡片显示「GitCode Quick Comment 1.9」且开关已开启即安装成功。点击工具栏上的插件图标可以打开设置面板。</p>
+        <figure>
+          <img class="shot" src="assets/a2-extension-card.png" alt="扩展列表中的 GitCode Quick Comment 卡片与启用开关" loading="lazy">
+          <figcaption>确认扩展已启用。</figcaption>
+        </figure>
+      </div>
+    </li>
+  </ol>
+
+  <div class="note" style="margin-top:28px">
+    <p><strong>更新离线包：</strong>用新版本文件覆盖解压目录，回到扩展管理页点击卡片上的刷新按钮。</p>
+    <p><strong>Firefox：</strong>只能在 <code>about:debugging</code> 中临时载入 <code>manifest.json</code>，浏览器重启后失效，不建议长期使用。</p>
+  </div>
+
+  <div class="next">
+    <a href="online.html">← 在线安装</a>
+    <a href="guide.html">使用指南 →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>离线包构建来源：<code>github.com/AustinQin/lgtm</code> @ <code>4b1a5db</code>（manifest 1.9）。</p>
+    <p>SHA-256：<code>6fbe263f78a9cea41a3416218b41ec0687d0fdbe618d5eeaa3245b335a7e7f92</code></p>
+  </div>
+</footer>
+
+</body>
+</html>

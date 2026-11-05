@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>使用指南 · GitCode Quick Comment</title>
+<meta name="description" content="GitCode Quick Comment 的验证方法、常用功能和常见问题。">
+<link rel="icon" href="assets/icon128.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html"><img src="assets/icon128.png" alt="">GitCode Quick Comment</a>
+    <span class="chip">v1.9</span>
+    <nav>
+      <a href="index.html">下载</a>
+      <a href="online.html">在线安装</a>
+      <a href="offline.html">离线安装</a>
+      <a href="guide.html" aria-current="page">使用指南</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>使用指南</h1>
+  <p class="lead">安装完成后，打开 GitCode Issue 或 PR 页面验证。完整图文说明见页面底部资源。</p>
+
+  <h2>装完先验证</h2>
+  <figure style="margin-bottom:20px">
+    <img class="shot" src="assets/b1-close-button.png" alt="issue 评论框中的关单说明按钮" loading="lazy">
+    <figcaption>Issue：评论区出现「关单说明」按钮。</figcaption>
+  </figure>
+  <figure>
+    <img class="shot" src="assets/d1-pr-shortcuts.png" alt="PR 评论框上的快捷键按钮" loading="lazy">
+    <figcaption>PR：评论区出现 /check-pr、compile、retry、/approve、/lgtm。</figcaption>
+  </figure>
+  <p class="small muted">按钮没有出现时，先刷新页面，再确认扩展已启用且当前域名是 <code>gitcode.com</code>。</p>
+
+  <h2>常用操作</h2>
+  <ul class="plain">
+    <li><strong>关单说明：</strong>点击「关单说明」，按模板填写必填项，点击「填入评论框」，检查后手动发送评论并添加 resolved 标签。表单支持粘贴或拖入图片，并自动保存本地草稿。</li>
+    <li><strong>Issue 更多菜单：</strong>直接提交常用标签命令和感谢回复；评论框已有内容时会停止快捷提交。</li>
+    <li><strong>PR 快捷评论：</strong><span class="kbd">/check-pr</span>、<span class="kbd">retry</span>、<span class="kbd">/lgtm</span> 直接提交；<span class="kbd">compile</span>、<span class="kbd">/approve</span> 默认二次确认后提交。</li>
+    <li><strong>工具栏设置：</strong>点击插件图标，可以启用或暂停快捷评论、隐藏和排序按钮，并为每个 PR 命令选择「填入评论框」「确认后提交」或「直接提交」。</li>
+  </ul>
+
+  <h2>常见问题</h2>
+  <details>
+    <summary>按钮不显示</summary>
+    <p>刷新页面；到扩展管理页确认扩展已启用且没有报错；确认当前页面是 gitcode.com 下的 Issue 或 PR。安装或更新后，旧标签页需要刷新一次。</p>
+  </details>
+  <details>
+    <summary>「加载未打包的扩展程序」报 manifest 缺失</summary>
+    <p>选择的目录层级不对。请选择直接包含 manifest.json 的那一层文件夹，而不是它的上一级或压缩包本身。</p>
+  </details>
+  <details>
+    <summary>离线包如何升级</summary>
+    <p>下载新版本 zip，覆盖解压目录中的文件，然后回到扩展管理页点击卡片上的刷新按钮。设置和关单草稿保存在扩展本地存储中。</p>
+  </details>
+  <details>
+    <summary>关单说明填入后没有自动提交</summary>
+    <p>关单说明只填入评论框，不会自动发送。请在页面上人工检查后点击「发送评论」。PR 快捷命令的提交方式可以在工具栏设置中调整。</p>
+  </details>
+  <details>
+    <summary>私有仓库读不到模板</summary>
+    <p>插件通过公开原文地址读取 <code>.msbot/</code> 模板，私有仓库或无法公开访问时会回退到内置表单。需要自定义表单时，请确保模板在默认分支且可公开读取。</p>
+  </details>
+
+  <h2>更多资料</h2>
+  <div class="grid">
+    <a class="card" href="https://github.com/AustinQin/lgtm#readme" target="_blank" rel="noopener">
+      <h3>README 与更新记录</h3>
+      <p>完整功能说明、模板格式和版本变更。</p>
+      <span class="go">打开 GitHub ↗</span>
+    </a>
+    <a class="card" href="https://gitcode.com/codeasier/msinsight/wiki/7-%E5%B7%A5%E5%85%B7-%E5%85%B3%E5%8D%95%E6%8F%92%E4%BB%B6%E4%B8%8E%E5%85%B3%E5%8D%95%E5%AE%A1%E8%AE%A1-%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97" target="_blank" rel="noopener">
+      <h3>在线版使用指南</h3>
+      <p>与 PDF 同结构，便于随代码版本更新和分享链接。</p>
+      <span class="go">打开 Wiki ↗</span>
+    </a>
+  </div>
+
+  <h2>版本说明</h2>
+  <ul class="plain">
+    <li><strong>v1.9</strong>：工具栏设置；Issue「更多」菜单支持直接提交标签命令和感谢回复。</li>
+    <li><strong>v1.8</strong>：PR 快捷评论触发 GitCode 原生提交，compile / approve 二次确认。</li>
+    <li><strong>v1.7</strong>：关单表单支持粘贴或拖拽图片上传。</li>
+    <li><strong>v1.6</strong>：优先读取 <code>.msbot/config.yaml</code> 指定的模板路径。</li>
+  </ul>
+
+  <div class="next">
+    <a href="offline.html">← 离线安装</a>
+    <a href="index.html">返回下载 →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>GitCode Quick Comment v1.9 · 插件主页</p>
+    <p>最后更新：2026-11-05</p>
+  </div>
+</footer>
+
+</body>
+</html>
