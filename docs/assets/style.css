@@ -99,3 +99,8 @@ footer code{background:none;border:0;padding:0}
   body{font-size:12pt}
   .steps li{break-inside:avoid}
 }
+
+.gh-star{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;font-weight:600;line-height:1.2}
+.gh-star:hover{background:var(--soft);color:var(--ink)}
+.gh-star svg{width:16px;height:16px;fill:currentColor}
+@media(max-width:520px){.gh-star span{display:none}.gh-star{padding:6px}}
