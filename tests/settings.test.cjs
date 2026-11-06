@@ -46,3 +46,17 @@ test('page detection only accepts GitCode detail routes', () => {
         assert.equal(S.pageContext(url).kind, 'unsupported');
     }
 });
+
+test('both PR URL formats map to the same context, including tabs, queries and anchors', () => {
+    for (const route of ['pull', 'merge_requests']) {
+        for (const suffix of ['', '/', '/files', '?tab=files#discussion']) {
+            assert.deepEqual(S.pageContext(`https://gitcode.com/Ascend/msinsight/${route}/1388${suffix}`), {
+                kind: 'pull', repository: 'Ascend/msinsight', number: '1388'
+            });
+        }
+    }
+    for (const suffix of ['', '/new', '/1388fake']) {
+        assert.equal(S.pageContext(`https://gitcode.com/Ascend/msinsight/merge_requests${suffix}`).kind, 'gitcode');
+    }
+    assert.equal(S.pageContext('https://gitcode.com.evil.test/Ascend/msinsight/merge_requests/1388').kind, 'unsupported');
+});

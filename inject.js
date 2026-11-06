@@ -95,7 +95,7 @@
         if (submissionPending) throw new Error('正在提交评论，请稍候。');
         const pathname = request.pathname;
         const isCurrent = () => editor.isConnected && location.pathname === pathname;
-        if (!/^\/[^/]+\/[^/]+\/(?:pull|issues)\/\d+(?:\/|$)/.test(pathname || '') || !isCurrent()) {
+        if (!/^\/[^/]+\/[^/]+\/(?:pull|merge_requests|issues)\/\d+(?:\/|$)/.test(pathname || '') || !isCurrent()) {
             throw new Error('页面已切换，请在当前页面重新操作。');
         }
         const value = readComment(editor);
@@ -158,8 +158,8 @@
             );
             if (!editor) throw new Error('评论框已不可用，请刷新页面后重试。');
             if (request.action === 'submit') {
-                const page = (request.pathname || '').match(/^\/[^/]+\/[^/]+\/(pull|issues)\/\d+(?:\/|$)/)?.[1];
-                const commands = page === 'pull' ? ['/check-pr', 'compile', 'retry', '/approve', '/lgtm']
+                const page = (request.pathname || '').match(/^\/[^/]+\/[^/]+\/(pull|merge_requests|issues)\/\d+(?:\/|$)/)?.[1];
+                const commands = (page === 'pull' || page === 'merge_requests') ? ['/check-pr', 'compile', 'retry', '/approve', '/lgtm']
                     : page === 'issues' ? [
                         ...['triage-review', 'triaged', 'pending', 'feature', 'resolved', 'stale', 'duplicated']
                             .map(tag => `/label add ${tag}`),

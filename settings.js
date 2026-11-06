@@ -48,8 +48,8 @@ const QuickCommentSettings = (() => {
         try {
             const parsed = new URL(url);
             if (parsed.origin !== 'https://gitcode.com') return { kind: 'unsupported' };
-            const match = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)(?:\/|$)/);
-            if (match) return { kind: match[3] === 'pull' ? 'pull' : 'issue', repository: `${match[1]}/${match[2]}`, number: match[4] };
+            const match = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(pull|merge_requests|issues)\/(\d+)(?:\/|$)/);
+            if (match) return { kind: match[3] === 'issues' ? 'issue' : 'pull', repository: `${match[1]}/${match[2]}`, number: match[4] };
             return { kind: 'gitcode' };
         } catch { return { kind: 'unsupported' }; }
     }

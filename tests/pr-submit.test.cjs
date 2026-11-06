@@ -493,3 +493,64 @@ test('Issue menu respects settings and rejects stale or disconnected contexts', 
         assert.equal(fixture.requests.length, 0, change);
     }
 });
+
+for (const cm5 of [false, true]) {
+    test(`merge_requests supports all PR commands with CodeMirror ${cm5 ? 5 : 6}`, async () => {
+        for (const item of require('../settings.js').groups.pull) {
+            const fixture = setup({ cm5, onClick(state) {
+                assert.equal(state.value, item.id);
+                state.value = '';
+            } });
+            fixture.location.pathname = '/Ascend/msinsight/merge_requests/1388';
+            assert.equal((await fixture.request({ comment: item.id })).success, true);
+            assert.equal(fixture.state.clicks, 1);
+        }
+    });
+}
+
+test('merge_requests preserves drafts and stops submission on navigation', async () => {
+    const draft = setup({ value: 'unfinished review' });
+    draft.location.pathname = '/Ascend/msinsight/merge_requests/1388';
+    assert.match((await draft.request()).error, /已有内容/);
+    assert.equal(draft.state.value, 'unfinished review');
+    assert.equal(draft.state.clicks, 0);
+    const moved = setup({ disabled: true, onTick(state, location) {
+        location.pathname = '/Ascend/msinsight/merge_requests/1389';
+    } });
+    moved.location.pathname = '/Ascend/msinsight/merge_requests/1388';
+    assert.match((await moved.request()).error, /页面已切换/);
+    assert.equal(moved.state.clicks, 0);
+});
+
+test('merge_requests rejects Issue commands and malformed detail routes', async () => {
+    for (const [path, comment] of [
+        ['/Ascend/msinsight/merge_requests/1388', '/label add resolved'],
+        ['/Ascend/msinsight/merge_requests/1388fake', '/lgtm'],
+        ['/Ascend/msinsight/merge_requests/new', '/lgtm']
+    ]) {
+        const fixture = setup();
+        fixture.location.pathname = path;
+        assert.equal((await fixture.request({ comment })).success, false);
+        assert.equal(fixture.state.writes, 0);
+        assert.equal(fixture.state.clicks, 0);
+    }
+});
+
+test('merge_requests uses PR submission settings, including confirmation and insert-only mode', async () => {
+    for (const mode of ['direct', 'confirm', 'insert']) {
+        const fixture = setupContent();
+        fixture.context.location.pathname = '/Ascend/msinsight/merge_requests/1388';
+        assert.equal(fixture.context.getPageType(), 'pull');
+        vm.runInContext(`quickSettings.groups.pull.find(row => row.id === '/approve').mode = '${mode}'`, fixture.context);
+        let confirmations = 0;
+        fixture.context.confirmPullComment = async () => { confirmations++; return true; };
+        const pending = fixture.context.submitPullComment({ isConnected: true }, 'editor-1', '/approve', { isConnected: true });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(confirmations, mode === 'confirm' ? 1 : 0);
+        assert.equal(fixture.requests.length, 1);
+        assert.equal(fixture.requests[0].action, mode === 'insert' ? undefined : 'submit');
+        if (mode !== 'insert') assert.equal(fixture.requests[0].pathname, '/Ascend/msinsight/merge_requests/1388');
+        fixture.respond({ requestId: 'content-request', success: true });
+        await pending;
+    }
+});

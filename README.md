@@ -19,6 +19,8 @@
 
 ### PR 评审
 
+支持 `/pull/编号` 和 `/merge_requests/编号` 两种 PR 链接。
+
 | 按钮 | 默认操作 |
 | --- | --- |
 | `/check-pr`、`retry`、`/lgtm` | 直接提交命令评论 |

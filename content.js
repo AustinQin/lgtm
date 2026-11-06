@@ -156,7 +156,7 @@ function addQuickCommentButtons() {
 }
 
 function getPageType() {
-    if (/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(location.pathname)) return 'pull';
+    if (/^\/[^/]+\/[^/]+\/(?:pull|merge_requests)\/\d+(?:\/|$)/.test(location.pathname)) return 'pull';
     if (/^\/[^/]+\/[^/]+\/issues\/\d+(?:\/|$)/.test(location.pathname)) return 'issue';
     return null;
 }
