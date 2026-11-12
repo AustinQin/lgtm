@@ -171,7 +171,19 @@
                 await submitComment(editor, request);
                 success = true;
             } else {
+                window.GitCodeResolveMonitor?.cancel();
                 success = appendComment(editor, request.comment);
+                if (success && request.resolveAfterSubmit) {
+                    const issue = (request.pathname || '').match(/^\/[^/]+\/[^/]+\/issues\/(\d+)(?:\/|$)/)?.[1];
+                    const armed = window.GitCodeResolveMonitor?.arm({
+                        editor, editorId: request.editorId, readComment, findSubmitButton, issue, projectId: request.projectId,
+                        pathname: request.pathname, token: request.resolveToken, resolution: request.comment
+                    });
+                    if (!armed) window.dispatchEvent(new CustomEvent('gitCodeResolveStatus', {
+                        detail: JSON.stringify({ token: request.resolveToken, pathname: request.pathname, editorId: request.editorId,
+                            phase: 'unavailable', message: '关单说明已填入，但自动标签未启用，请刷新页面后重新填入或手动添加 resolved。' })
+                    }));
+                }
             }
         } catch (cause) {
             error = cause.message;

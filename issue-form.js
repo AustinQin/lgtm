@@ -45,6 +45,19 @@ const IssueResolveForm = (() => {
     let active = null;
     let opening = false;
     const pendingWrites = new Map();
+    const AUTO_LABEL_KEY = 'issueResolveAutoLabel';
+    let preferenceWrite = Promise.resolve();
+
+    async function getAutoLabelPreference() {
+        await preferenceWrite;
+        try {
+            const stored = await chrome.storage.local.get(AUTO_LABEL_KEY);
+            return stored[AUTO_LABEL_KEY] !== false;
+        } catch {
+            // Do not enable an automatic action if its saved opt-out cannot be read.
+            return false;
+        }
+    }
 
     function normalize(values = {}) {
         const result = {};
@@ -127,9 +140,11 @@ const IssueResolveForm = (() => {
             isVisible: (field, data) => !field.conditional || data.userVisible === '是' };
         const key = draftKey(context, model.draftId);
         let draft;
+        let autoLabelEnabled = false;
         let storageAvailable = true;
         try {
             await pendingWrites.get(key);
+            autoLabelEnabled = await getAutoLabelPreference();
             draft = (await chrome.storage.local.get(key))[key];
         } catch {
             storageAvailable = false;
@@ -238,6 +253,20 @@ const IssueResolveForm = (() => {
         const formError = element('p', 'qc-resolve-error');
         formError.setAttribute('role', 'alert');
         footerInfo.append(draftStatus, element('small', '', '可直接粘贴或拖入图片，检查后手动提交'), formError);
+        const resolveOption = element('label', 'qc-resolve-auto-label');
+        const resolveCheckbox = element('input');
+        resolveCheckbox.type = 'checkbox';
+        resolveCheckbox.checked = autoLabelEnabled;
+        resolveCheckbox.addEventListener('change', () => {
+            const enabled = resolveCheckbox.checked;
+            // Save immediately and serialize rapid toggles, independently of Issue drafts.
+            preferenceWrite = preferenceWrite.then(() => chrome.storage.local.set({ [AUTO_LABEL_KEY]: enabled }))
+                .catch(() => {
+                    if (!closed) formError.textContent = '本次选择已生效，但无法保存偏好，下次打开时请检查此选项。';
+                });
+        });
+        resolveOption.append(resolveCheckbox, element('span', '', '提交后标记为 resolved'));
+        footerInfo.append(resolveOption);
         const actions = element('div', 'qc-resolve-actions');
         const cancelButton = element('button', 'qc-resolve-secondary', '保存并关闭');
         cancelButton.type = 'button';
@@ -317,6 +346,7 @@ const IssueResolveForm = (() => {
             }
             if (!isCurrent()) { close(); return; }
             submitting = true;
+            resolveCheckbox.disabled = true;
             submitButton.disabled = true;
             cancelButton.disabled = true;
             closeButton.disabled = true;
@@ -325,13 +355,14 @@ const IssueResolveForm = (() => {
             await save();
             if (closed) return;
             try {
-                await onInsert(model.buildMarkdown(data));
+                await onInsert(model.buildMarkdown(data), { resolveAfterSubmit: resolveCheckbox.checked });
                 close();
                 onSuccess();
             } catch (error) {
                 formError.textContent = error.message || '填入失败，请重试。';
             } finally {
                 submitting = false;
+                resolveCheckbox.disabled = false;
                 submitButton.disabled = false;
                 cancelButton.disabled = false;
                 closeButton.disabled = false;
@@ -441,5 +472,5 @@ const IssueResolveForm = (() => {
         if (active && !active.isCurrent()) active.close();
     }
 
-    return { open, checkContext, normalize, validate, buildMarkdown, draftKey };
+    return { open, checkContext, normalize, validate, buildMarkdown, draftKey, getAutoLabelPreference };
 })();

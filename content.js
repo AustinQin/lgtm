@@ -15,6 +15,7 @@ let updateScheduled = false;
 let toastDismissTimer;
 let commentSubmissionPending = false;
 let activePullConfirm = null;
+let resolveActionToken = null;
 
 initPageEnvironment();
 initQuickComments();
@@ -30,6 +31,57 @@ function initPageEnvironment() {
 }
 
 function initQuickComments() {
+    window.addEventListener('gitCodeResolveStatus', event => {
+        const result = parseEventDetail(event.detail);
+        if (!result || result.token !== resolveActionToken) return;
+        document.querySelector('.quick-comment-resolve-pending')?.remove();
+        if (result.pathname !== location.pathname) return;
+        if (['armed', 'waiting', 'unavailable'].includes(result.phase)) {
+            const editor = [...document.querySelectorAll(`[${EDITOR_ID_ATTRIBUTE}]`)]
+                .find(node => node.getAttribute(EDITOR_ID_ATTRIBUTE) === result.editorId);
+            if (!editor) return;
+            const status = document.createElement('div');
+            status.className = 'quick-comment-resolve-pending';
+            status.setAttribute('role', 'status');
+            if (result.phase === 'unavailable') {
+                status.textContent = result.message;
+            } else {
+                const label = document.createElement('label');
+                label.className = 'quick-comment-resolve-option';
+                label.title = '仅控制本次提交，不改变表单中保存的偏好';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = result.enabled !== false;
+                checkbox.addEventListener('change', () => {
+                    window.dispatchEvent(new CustomEvent('gitCodeResolveToggle', {
+                        detail: JSON.stringify({ token: result.token, pathname: result.pathname, enabled: checkbox.checked })
+                    }));
+                });
+                const text = document.createElement('span');
+                text.textContent = '提交成功后标记 resolved';
+                label.append(checkbox, text);
+                status.append(label);
+                if (result.phase === 'waiting') {
+                    const message = document.createElement('span');
+                    message.className = 'quick-comment-resolve-message';
+                    message.textContent = result.message;
+                    status.append(message);
+                }
+            }
+            const attachment = editor.querySelector('.comment-editor__attach');
+            if (attachment) attachment.insertAdjacentElement('afterend', status);
+            else {
+                const actions = editor.querySelector('.comment-editor__actions, .edit-area_actions');
+                if (actions) actions.prepend(status);
+                else {
+                    status.classList.add('quick-comment-resolve-pending--fallback');
+                    editor.appendChild(status);
+                }
+            }
+        } else if (result.phase !== 'cancelled') {
+            showQuickCommentToast(result.message);
+        }
+    });
     scheduleButtonUpdate();
 
     const observer = new MutationObserver(scheduleButtonUpdate);
@@ -58,7 +110,14 @@ function scheduleButtonUpdate() {
     });
 }
 
+function cancelResolveLabel() {
+    resolveActionToken = null;
+    window.dispatchEvent(new CustomEvent('gitCodeResolveCancel', { detail: null }));
+    document.querySelector('.quick-comment-resolve-pending')?.remove();
+}
+
 function applySettings(value) {
+    cancelResolveLabel();
     quickSettings = QuickCommentSettings.normalize(value);
     settingsReady = true;
     settingsError = false;
@@ -269,16 +328,18 @@ async function insertIssueTemplate(editor, editorId, button) {
                 context,
                 schema: template.schema,
                 isCurrent: isCurrentEditor,
-                onInsert: async markdown => {
+                onInsert: async (markdown, options = {}) => {
                     if (!isCurrentEditor()) throw new Error('页面已切换，请在当前 Issue 重新打开关单说明。');
-                    await insertCommentAndWait(editorId, markdown);
+                    await insertResolveComment(editorId, markdown, context, options.resolveAfterSubmit !== false);
                 },
                 onSuccess: () => showQuickCommentToast('关单说明已填入评论框，请检查后提交。')
             });
             return;
         }
 
-        await insertCommentAndWait(editorId, template.content);
+        const autoLabelEnabled = await IssueResolveForm.getAutoLabelPreference();
+        if (!isCurrentEditor()) return;
+        await insertResolveComment(editorId, template.content, context, autoLabelEnabled);
         if (isCurrentEditor()) {
             showQuickCommentToast('仓库模板已填入，请补充关单说明和版本信息后提交。');
         }
@@ -460,10 +521,17 @@ async function submitQuickComment(editorId, comment, pathname, label = comment) 
     }
 }
 
-async function insertCommentAndWait(editorId, comment) {
+async function insertResolveComment(editorId, comment, context, resolveAfterSubmit) {
+    cancelResolveLabel();
+    resolveActionToken = crypto.randomUUID();
+    await insertCommentAndWait(editorId, comment, { resolveAfterSubmit, resolveToken: resolveActionToken,
+        pathname: location.pathname, projectId: IssueImageUpload.repositoryId(context.repository) });
+}
+
+async function insertCommentAndWait(editorId, comment, options = {}) {
     const errorMessage = '模板已读取，但无法填入评论框。请刷新页面后重试。';
     try {
-        await requestEditorUpdate({ editorId, comment }, 2000, errorMessage);
+        await requestEditorUpdate({ editorId, comment, ...options }, 2000, errorMessage);
     } catch {
         throw new Error(errorMessage);
     }

@@ -12,18 +12,21 @@ function setup(fetch) {
     const editor = { isConnected: true, querySelector: () => status };
     const button = { isConnected: true, disabled: false, textContent: 'template' };
     const insertions = [];
+    const insertionOptions = [];
     const toasts = [];
     const forms = [];
     const context = vm.createContext({
         fetch, AbortController, TypeError, setTimeout, clearTimeout, TextEncoder,
         crypto: webcrypto, jsyaml: require('../vendor/js-yaml.min.js'),
         location: { pathname: '/team/project/issues/42' },
-        document: { querySelector: () => ({}), body: {}, addEventListener() {} },
-        window: { addEventListener() {} },
+        CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+        IssueImageUpload: { repositoryId: () => 123 },
+        document: { querySelector: () => ({ remove() {} }), body: {}, addEventListener() {} },
+        window: { addEventListener() {}, dispatchEvent() {} },
         MutationObserver: class { observe() {} },
         requestAnimationFrame() {},
-        IssueResolveForm: { open: async options => forms.push(options), checkContext() {} },
-        recordInsertion: async (...args) => insertions.push(args),
+        IssueResolveForm: { open: async options => forms.push(options), checkContext() {}, getAutoLabelPreference: async () => true },
+        recordInsertion: async (id, comment, options) => { insertions.push([id, comment]); insertionOptions.push(options); },
         recordToast: message => toasts.push(message)
     });
     vm.runInContext(readFileSync(require.resolve('../issue-template.js'), 'utf8'), context);
@@ -32,7 +35,7 @@ function setup(fetch) {
     vm.runInContext('insertCommentAndWait = recordInsertion', context);
     vm.runInContext('showQuickCommentToast = recordToast', context);
     return {
-        context, status, editor, button, insertions, toasts, forms,
+        context, status, editor, button, insertions, insertionOptions, toasts, forms,
         run: () => context.insertIssueTemplate(editor, 'editor-1', button)
     };
 }
@@ -263,4 +266,19 @@ test('prevents an open form from inserting into another Issue', async () => {
     fixture.context.location.pathname = '/team/project/issues/43';
     await assert.rejects(fixture.forms[0].onInsert('generated'), /页面已切换/);
     assert.equal(fixture.insertions.length, 0);
+});
+
+ test('passes the form opt-out through to the editor without arming automatic labels', async () => {
+    const fixture = setup(async () => response(yaml));
+    await fixture.run();
+    await fixture.forms[0].onInsert('# 关单说明', { resolveAfterSubmit: false });
+    assert.equal(fixture.insertionOptions[0].resolveAfterSubmit, false);
+    assert.equal(fixture.insertionOptions[0].projectId, 123);
+});
+
+test('Markdown templates also respect the saved automatic-label preference', async () => {
+    const fixture = setup(async url => response(url.endsWith('.md') ? '# 关单说明' : '', url.endsWith('.md') ? 200 : 404));
+    fixture.context.IssueResolveForm.getAutoLabelPreference = async () => false;
+    await fixture.run();
+    assert.equal(fixture.insertionOptions[0].resolveAfterSubmit, false);
 });

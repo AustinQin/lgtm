@@ -232,3 +232,52 @@
 .quick-comment-menu-item:active {
   background: #e6f7ff;
 }
+
+/* Keep the per-comment option beside the native attachment action. */
+.comment-editor__actions:has(> .quick-comment-resolve-pending) {
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: center;
+}
+.comment-editor__actions:has(> .quick-comment-resolve-pending) > .comment-editor__actions-right {
+  margin-left: auto;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+.comment-editor__actions:has(> .quick-comment-resolve-pending) .comment-editor__submit {
+  flex-shrink: 0;
+  min-width: max-content;
+}
+.quick-comment-resolve-pending {
+  display: flex;
+  flex: 1 1 210px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--theme-text-secondary, #6b7280);
+}
+.quick-comment-resolve-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.quick-comment-resolve-option input {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--theme-btn-primary, #20232a);
+  cursor: pointer;
+}
+.quick-comment-resolve-option input:focus-visible {
+  outline: 2px solid var(--theme-btn-primary, #20232a);
+  outline-offset: 3px;
+}
+.quick-comment-resolve-pending--fallback {
+  margin: 0 20px 12px;
+}

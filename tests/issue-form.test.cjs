@@ -80,3 +80,71 @@ test('normalizes malformed drafts and isolates storage by repository and Issue',
     assert.notEqual(form.draftKey({ repository: 'team/a', issue: '1' }), form.draftKey({ repository: 'team/b', issue: '1' }));
     assert.notEqual(form.draftKey({ repository: 'team/a', issue: '1' }), form.draftKey({ repository: 'team/a', issue: '2' }));
 });
+
+function preferenceForm(storage) {
+    const nodes = [];
+    const context = vm.createContext({
+        chrome: { storage: { local: storage } }, setTimeout, clearTimeout,
+        window: { addEventListener() {}, removeEventListener() {} },
+        document: { activeElement: null, body: { appendChild() {} }, createElement(tag) {
+            const listeners = new Map();
+            const node = { tagName: tag.toUpperCase(), children: [],
+                append(...children) { this.children.push(...children); }, setAttribute() {},
+                addEventListener(type, fn) { listeners.set(type, fn); },
+                dispatch(type) { return listeners.get(type)?.({ preventDefault() {} }); },
+                querySelectorAll: () => [], showModal() {}, close() {}, remove() {} };
+            nodes.push(node); return node;
+        } }
+    });
+    vm.runInContext(readFileSync(require.resolve('../issue-form.js'), 'utf8'), context);
+    const api = vm.runInContext('IssueResolveForm', context);
+    return { api, nodes, async open(repository = 'team/one') {
+        await api.open({ context: { repository, issue: '42' }, isCurrent: () => true,
+            onInsert() {}, onSuccess() {}, schema: { sections: [], normalize: () => ({}), validate: () => ({}) } });
+        return nodes.find(n => n.className === 'qc-resolve-auto-label').children[0];
+    } };
+}
+
+test('remembers toggles immediately across fresh page contexts and repositories without submitting a form', async () => {
+    const data = {};
+    const storage = { get: async key => ({ [key]: data[key] }), set: async value => Object.assign(data, value) };
+    const first = preferenceForm(storage);
+    const checkbox = await first.open();
+    assert.equal(checkbox.checked, true);
+    checkbox.checked = false; checkbox.dispatch('change');
+    assert.equal(await first.api.getAutoLabelPreference(), false);
+    const reopened = preferenceForm(storage);
+    const restored = await reopened.open('another/repo');
+    assert.equal(restored.checked, false);
+    restored.checked = true; restored.dispatch('change');
+    assert.equal(await reopened.api.getAutoLabelPreference(), true);
+    assert.equal((await preferenceForm(storage).open()).checked, true);
+});
+
+test('serializes rapid changes so a slow older write cannot overwrite the final selection', async () => {
+    const data = {};
+    let release;
+    let writes = 0;
+    const storage = { get: async key => ({ [key]: data[key] }), async set(value) {
+        if (++writes === 1) await new Promise(resolve => { release = resolve; });
+        Object.assign(data, value);
+    } };
+    const f = preferenceForm(storage); const checkbox = await f.open();
+    checkbox.checked = false; checkbox.dispatch('change');
+    checkbox.checked = true; checkbox.dispatch('change');
+    await new Promise(setImmediate);
+    assert.equal(writes, 1);
+    release();
+    assert.equal(await f.api.getAutoLabelPreference(), true);
+    assert.equal(writes, 2);
+});
+
+test('does not silently enable automatic labeling when storage is unreadable and reports save failures', async () => {
+    const f = preferenceForm({ async get() { throw new Error('unavailable'); }, async set() { throw new Error('full'); } });
+    const checkbox = await f.open();
+    assert.equal(checkbox.checked, false);
+    checkbox.checked = true; checkbox.dispatch('change');
+    await f.api.getAutoLabelPreference();
+    assert.ok(f.nodes.some(n => n.textContent?.includes('无法保存偏好')));
+    assert.equal(checkbox.checked, true);
+});

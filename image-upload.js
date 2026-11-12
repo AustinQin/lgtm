@@ -103,5 +103,5 @@ const IssueImageUpload = (() => {
         return markdown;
     }
 
-    return { repositoryIdFromNuxt, buildImageMarkdown, upload };
+    return { repositoryIdFromNuxt, repositoryId, buildImageMarkdown, upload };
 })();

@@ -220,7 +220,7 @@ function setupContent() {
     };
     const context = vm.createContext({
         window, location: { pathname: '/team/project/pull/42' },
-        document: { querySelector: () => ({}), querySelectorAll: () => buttons, body: {}, addEventListener() {} },
+        document: { querySelector: () => ({ remove() {} }), querySelectorAll: () => buttons, body: {}, addEventListener() {} },
         MutationObserver: class { observe() {} }, requestAnimationFrame() {},
         setTimeout, clearTimeout, crypto: { randomUUID: () => 'content-request' },
         console: { warn() {} },

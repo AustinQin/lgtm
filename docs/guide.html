@@ -13,7 +13,7 @@
 <header>
   <div class="wrap nav">
     <a class="brand" href="index.html"><img src="assets/icon128.png" alt="">GitCode Quick Comment</a>
-    <span class="chip">v1.9</span>
+    <span class="chip">v1.10.0</span>
     <nav>
       <a href="index.html">下载</a>
       <a href="online.html">在线安装</a>
@@ -44,7 +44,7 @@
 
   <h2>常用操作</h2>
   <ul class="plain">
-    <li><strong>关单说明：</strong>点击「关单说明」，按模板填写必填项，点击「填入评论框」，检查后手动发送评论并添加 resolved 标签。表单支持粘贴或拖入图片，并自动保存本地草稿。</li>
+    <li><strong>关单说明：</strong>点击「关单说明」，按模板填写必填项，点击「填入评论框」，检查后手动发送评论；发送成功后默认自动添加 resolved 标签，可在表单中取消勾选，不会自动关闭 Issue。表单支持粘贴或拖入图片，并自动保存本地草稿。</li>
     <li><strong>Issue 更多菜单：</strong>直接提交常用标签命令和感谢回复；评论框已有内容时会停止快捷提交。</li>
     <li><strong>PR 快捷评论：</strong><span class="kbd">/check-pr</span>、<span class="kbd">retry</span>、<span class="kbd">/lgtm</span> 直接提交；<span class="kbd">compile</span>、<span class="kbd">/approve</span> 默认二次确认后提交。</li>
     <li><strong>工具栏设置：</strong>点击插件图标，可以启用或暂停快捷评论、隐藏和排序按钮，并为每个 PR 命令选择「填入评论框」「确认后提交」或「直接提交」。</li>
@@ -88,6 +88,8 @@
 
   <h2>版本说明</h2>
   <ul class="plain">
+    <li><strong>v1.10.0</strong>：关单说明提交后自动标记 resolved，记住选择并支持本次单独调整。</li>
+    <li><strong>v1.9.1</strong>：兼容 merge_requests 格式的 PR 链接。</li>
     <li><strong>v1.9</strong>：工具栏设置；Issue「更多」菜单支持直接提交标签命令和感谢回复。</li>
     <li><strong>v1.8</strong>：PR 快捷评论触发 GitCode 原生提交，compile / approve 二次确认。</li>
     <li><strong>v1.7</strong>：关单表单支持粘贴或拖拽图片上传。</li>
@@ -102,7 +104,7 @@
 
 <footer>
   <div class="wrap">
-    <p>GitCode Quick Comment v1.9 · 插件主页</p>
+    <p>GitCode Quick Comment v1.10.0 · 插件主页</p>
     <p>最后更新：2026-11-05</p>
   </div>
 </footer>
